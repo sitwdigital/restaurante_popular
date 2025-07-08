@@ -1,0 +1,31 @@
+name: restaurante_popular
+description: Aplicativo do Restaurante Popular Maranhão
+publish_to: 'none' # porque não vamos publicar no pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Dependências adicionais se precisar
+  cupertino_icons: ^1.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+
+  uses-material-design: true
+
+  assets:
+    - assets/images/destaque1.jpg
+    - assets/images/destaque2.jpg
+    - assets/images/noticias1.jpg
+    - assets/images/noticias2.jpg
+    - assets/images/noticias3.jpg
