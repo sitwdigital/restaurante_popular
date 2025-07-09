@@ -33,9 +33,9 @@ class HomeScreen extends StatelessWidget {
   ];
 
   final List<PriceInfo> valores = const [
-    PriceInfo('Almoço Popular', 'R\$ 1,00'),
-    PriceInfo('Jantar Popular', 'R\$ 2,00'),
-    PriceInfo('Prato Executivo', 'R\$ 5,00'),
+    PriceInfo('Café da Manhã', 'R\$ 0,50'),
+    PriceInfo('Almoço', 'R\$ 1,00'),
+    PriceInfo('Jantar', 'R\$ 1,00'),
   ];
 
   const HomeScreen({super.key});
@@ -58,8 +58,18 @@ class HomeScreen extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            // AppBar customizado
-            Padding(
+            // AppBar customizada com sombra
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
@@ -83,6 +93,8 @@ class HomeScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const SizedBox(height: 16),
+
                     // Destaques
                     Text('Destaques',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -111,7 +123,6 @@ class HomeScreen extends StatelessWidget {
                             ),
                           );
 
-                          // Adiciona GestureDetector no primeiro item
                           if (i == 0) {
                             imageWidget = GestureDetector(
                               onTap: _launchURL,
@@ -141,35 +152,60 @@ class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
-                      height: 180,
+                      height: 250,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: noticias.length,
                         itemBuilder: (context, i) {
                           final item = noticias[i];
+                          final data = "16/04/2025";
+
                           return Padding(
                             padding: const EdgeInsets.only(right: 12),
-                            child: SizedBox(
+                            child: Container(
                               width: screenWidth * 0.6,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.asset(
-                                        item.imageUrl,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      topRight: Radius.circular(12),
+                                    ),
+                                    child: Image.asset(
+                                      item.imageUrl,
+                                      width: double.infinity,
+                                      height: 120,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      item.title,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFE30613),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    item.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.titleSmall,
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                    child: Text(
+                                      data,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -186,16 +222,45 @@ class HomeScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: const Color(0xFF204181),
                             )),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Veja os valores acessíveis das refeições.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                     const SizedBox(height: 12),
                     Column(
-                      children: valores
-                          .map((v) => ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(v.label),
-                                trailing: Text(v.value,
-                                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ))
-                          .toList(),
+                      children: valores.map((v) {
+                        return Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF43B649), // verde
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                v.label,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Valor: ${v.value}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     ),
 
                     const SizedBox(height: 24),
@@ -205,27 +270,20 @@ class HomeScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: const Color(0xFF204181),
                             )),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Confira os dias e horários de funcionamento.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                     const SizedBox(height: 12),
-                    Card(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      child: const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Segunda a Sexta',
-                                style: TextStyle(fontSize: 16)),
-                            SizedBox(height: 4),
-                            Text('11:00 – 14:00'),
-                            Divider(height: 20),
-                            Text('Sábado e Domingo',
-                                style: TextStyle(fontSize: 16)),
-                            SizedBox(height: 4),
-                            Text('12:00 – 15:00'),
-                          ],
-                        ),
-                      ),
+                    Column(
+                      children: [
+                        _buildHorarioItem(Icons.check_circle, Colors.green, 'Segunda à Sexta'),
+                        _buildHorarioItem(Icons.check_circle, Colors.green, 'Café da Manhã: 06h30 às 08h'),
+                        _buildHorarioItem(Icons.check_circle, Colors.green, 'Almoço: 11h às 14h'),
+                        _buildHorarioItem(Icons.check_circle, Colors.green, 'Jantar: 16h30 às 19h'),
+                        _buildHorarioItem(Icons.cancel, Colors.red, 'Sábado, Domingo e Feriados'),
+                      ],
                     ),
 
                     const SizedBox(height: 16),
@@ -236,27 +294,33 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
 
-      // Bottom Navigation
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: BottomNavigationBar(
-          currentIndex: 0,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Colors.red,
-          unselectedItemColor: Colors.grey[600],
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Início'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.restaurant_menu), label: 'Cardápio'),
-            BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Notícias'),
-            BottomNavigationBarItem(icon: Icon(Icons.location_on), label: 'Unidades'),
-            BottomNavigationBarItem(icon: Icon(Icons.info_outline), label: 'Sobre'),
-          ],
-          onTap: (i) {
-            // implementar navegação
-          },
-        ),
+  Widget _buildHorarioItem(IconData icon, Color iconColor, String text) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F3F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E1E1E),
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
