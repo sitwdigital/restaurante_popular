@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:http/http.dart' as http;
 
 class CardapioScreen extends StatefulWidget {
   const CardapioScreen({super.key});
@@ -9,12 +11,12 @@ class CardapioScreen extends StatefulWidget {
 }
 
 class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStateMixin {
-  final List<String> diasSemana = [
-    '13/05/2025',
-    '14/05/2025',
-    '15/05/2025',
-    '16/05/2025',
-    '17/05/2025',
+  final List<String> diasemana = [
+    'segunda',
+    'terca',
+    'quarta',
+    'quinta',
+    'sexta',
   ];
 
   String? diaSelecionado;
@@ -23,20 +25,66 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
   bool expandedAlmoco = false;
   bool expandedJantar = false;
 
+  Map<String, dynamic> cardapioData = {};
+
   @override
   void initState() {
     super.initState();
-    diaSelecionado = diasSemana.last;
+    diaSelecionado = diasemana.first;
+    fetchCardapio();
   }
 
-  Map<String, String> getCardapio(String dia, String refeicao) {
-    return {
-      'Prato principal': 'Almoço',
-      'Acompanhamento': 'Purê de macaxeira',
-      'Cereal': 'Arroz branco e feijão verde',
-      'Salada': 'Alface crespa, cenoura ralada e beterraba',
-      'Sobremesa': 'Melancia',
-    };
+  Future<void> fetchCardapio() async {
+    try {
+      print('Chamando Strapi...');
+      final response = await http.get(Uri.parse('http://192.168.15.13:1337/api/cardapio-do-dias'));
+
+      print('Status code: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('Body: ${response.body}');
+
+        final List items = data['data'];
+        Map<String, dynamic> parsed = {};
+
+        for (var item in items) {
+          // Corrigido: sem usar 'attributes'
+          String dia = item['diasemana'];
+
+          String extractText(List<dynamic> blocks) {
+            return blocks.map((block) {
+              if (block['children'] != null && block['children'].isNotEmpty) {
+                return block['children'][0]['text'];
+              }
+              return '';
+            }).join('\n');
+          }
+
+          parsed[dia] = {
+            'cafe': {'Prato': extractText(item['cafe'] ?? [])},
+            'almoco': {'Prato': extractText(item['almoco'] ?? [])},
+            'jantar': {'Prato': extractText(item['jantar'] ?? [])},
+          };
+        }
+
+        setState(() {
+          cardapioData = parsed;
+        });
+      } else {
+        print('Erro ao carregar cardápio: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Erro: $e');
+    }
+  }
+
+  Map<String, String> getDetalhes(String refeicao) {
+    final diaData = cardapioData[diaSelecionado];
+    if (diaData != null && diaData[refeicao] != null) {
+      final detalhes = diaData[refeicao] as Map<String, dynamic>;
+      return detalhes.map((key, value) => MapEntry(key, value.toString()));
+    }
+    return {};
   }
 
   @override
@@ -76,82 +124,84 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
             ),
 
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
-                    Text(
-                      'Cardápio do Dia',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Selecione uma data e consulte o cardápio do café, almoço e jantar.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 16),
+              child: cardapioData.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          Text(
+                            'Cardápio do Dia',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Selecione um dia e consulte o cardápio do café, almoço e jantar.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 16),
 
-                    // Dropdown azul
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF204181),
-                        borderRadius: BorderRadius.circular(8),
+                          // Dropdown azul
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF204181),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButton<String>(
+                              value: diaSelecionado,
+                              dropdownColor: const Color(0xFF204181),
+                              isExpanded: true,
+                              iconEnabledColor: Colors.white,
+                              style: const TextStyle(color: Colors.white),
+                              underline: const SizedBox(),
+                              items: diasemana.map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value, style: const TextStyle(color: Colors.white)),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  diaSelecionado = value;
+                                  expandedCafe = false;
+                                  expandedAlmoco = false;
+                                  expandedJantar = false;
+                                });
+                              },
+                            ),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          _buildCardapioSection('Café da Manhã', expandedCafe, () {
+                            setState(() {
+                              expandedCafe = !expandedCafe;
+                            });
+                          }, getDetalhes('cafe')),
+
+                          const SizedBox(height: 12),
+
+                          _buildCardapioSection('Almoço', expandedAlmoco, () {
+                            setState(() {
+                              expandedAlmoco = !expandedAlmoco;
+                            });
+                          }, getDetalhes('almoco')),
+
+                          const SizedBox(height: 12),
+
+                          _buildCardapioSection('Jantar', expandedJantar, () {
+                            setState(() {
+                              expandedJantar = !expandedJantar;
+                            });
+                          }, getDetalhes('jantar')),
+
+                          const SizedBox(height: 16),
+                        ],
                       ),
-                      child: DropdownButton<String>(
-                        value: diaSelecionado,
-                        dropdownColor: const Color(0xFF204181),
-                        isExpanded: true,
-                        iconEnabledColor: Colors.white,
-                        style: const TextStyle(color: Colors.white),
-                        underline: const SizedBox(),
-                        items: diasSemana.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value, style: const TextStyle(color: Colors.white)),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            diaSelecionado = value;
-                            expandedCafe = false;
-                            expandedAlmoco = false;
-                            expandedJantar = false;
-                          });
-                        },
-                      ),
                     ),
-
-                    const SizedBox(height: 24),
-
-                    _buildCardapioSection('Café da Manhã', expandedCafe, () {
-                      setState(() {
-                        expandedCafe = !expandedCafe;
-                      });
-                    }, getCardapio(diaSelecionado!, 'cafe')),
-
-                    const SizedBox(height: 12),
-
-                    _buildCardapioSection('Almoço', expandedAlmoco, () {
-                      setState(() {
-                        expandedAlmoco = !expandedAlmoco;
-                      });
-                    }, getCardapio(diaSelecionado!, 'almoco')),
-
-                    const SizedBox(height: 12),
-
-                    _buildCardapioSection('Jantar', expandedJantar, () {
-                      setState(() {
-                        expandedJantar = !expandedJantar;
-                      });
-                    }, getCardapio(diaSelecionado!, 'jantar')),
-
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
@@ -169,7 +219,6 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
       onTap: onTap,
       child: Column(
         children: [
-          // Cabeçalho verde com ícone animado
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
@@ -193,13 +242,11 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
               ],
             ),
           ),
-
-          // Conteúdo animado
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             alignment: Alignment.topCenter,
-            child: expanded
+            child: expanded && detalhes.isNotEmpty
                 ? Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),

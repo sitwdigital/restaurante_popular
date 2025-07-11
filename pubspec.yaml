@@ -12,6 +12,11 @@ dependencies:
     sdk: flutter
   flutter_svg: ^2.0.7
   url_launcher: ^6.2.1
+  google_maps_flutter: ^2.5.0
+  geolocator: ^10.1.0
+  geocoding: ^2.2.0
+  http: ^1.1.0
+
 
   # Dependências adicionais se precisar
   cupertino_icons: ^1.0.2
@@ -32,3 +37,6 @@ flutter:
     - assets/images/noticias2.jpg
     - assets/images/noticias3.jpg
     - assets/images/logo.svg
+    - assets/images/logo_governo.png
+    - assets/images/mapa_fake.jpg
+    - assets/images/coroado.jpg

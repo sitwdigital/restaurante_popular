@@ -89,7 +89,7 @@ class _NewsScreenState extends State<NewsScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Campo de busca
+                    // Nova barra de busca igual ao Figma
                     Row(
                       children: [
                         Expanded(
@@ -102,29 +102,33 @@ class _NewsScreenState extends State<NewsScreen> {
                             },
                             decoration: InputDecoration(
                               hintText: 'Buscar por notícia',
-                              filled: true,
-                              fillColor: Colors.grey[200],
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                              filled: true,
+                              fillColor: Colors.white,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide.none,
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFF204181)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFF204181)),
                               ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Container(
+                          height: 48,
+                          width: 48,
                           decoration: BoxDecoration(
                             color: const Color(0xFF204181),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: IconButton(
-                            icon: const Icon(Icons.search, color: Colors.white),
-                            onPressed: () {},
-                          ),
-                        ),
+                          child: const Icon(Icons.search, color: Colors.white),
+                        )
                       ],
                     ),
+
                     const SizedBox(height: 16),
 
                     // Lista de notícias

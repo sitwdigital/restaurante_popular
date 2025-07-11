@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// -----------------------------------------------------------------------------
-// MODELS DE EXEMPLO
-// -----------------------------------------------------------------------------
 class NewsItem {
   final String title;
   final String imageUrl;
@@ -17,30 +14,26 @@ class PriceInfo {
   const PriceInfo(this.label, this.value);
 }
 
-// -----------------------------------------------------------------------------
-// HOME SCREEN
-// -----------------------------------------------------------------------------
 class HomeScreen extends StatelessWidget {
-  final List<String> destaqueImages = const [
+  final List<String> destaqueImages = [
     'assets/images/destaque1.jpg',
     'assets/images/destaque2.jpg',
   ];
 
-  final List<NewsItem> noticias = const [
+  final List<NewsItem> noticias = [
     NewsItem('Inauguração em São Luís', 'assets/images/noticias1.jpg'),
     NewsItem('Manutenção programada', 'assets/images/noticias2.jpg'),
     NewsItem('Novos pratos da semana', 'assets/images/noticias3.jpg'),
   ];
 
-  final List<PriceInfo> valores = const [
+  final List<PriceInfo> valores = [
     PriceInfo('Café da Manhã', 'R\$ 0,50'),
     PriceInfo('Almoço', 'R\$ 1,00'),
     PriceInfo('Jantar', 'R\$ 1,00'),
   ];
 
-  const HomeScreen({super.key});
+  HomeScreen({super.key});
 
-  // Função para abrir o link
   Future<void> _launchURL() async {
     final Uri url = Uri.parse('https://maranhaolivredafome.ma.gov.br/#funciona');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
@@ -118,7 +111,7 @@ class HomeScreen extends StatelessWidget {
                               width: screenWidth * 0.9,
                               child: Image.asset(
                                 destaqueImages[i],
-                                fit: BoxFit.cover,
+                                fit: BoxFit.fitWidth,
                               ),
                             ),
                           );
