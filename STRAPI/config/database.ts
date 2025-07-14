@@ -1,7 +1,7 @@
 import path from 'path';
 
 export default ({ env }) => {
-  const client = env('DATABASE_CLIENT', 'mysql'); // 👉 já deixei mysql como padrão
+  const client = env('DATABASE_CLIENT', 'mysql');
 
   const connections = {
     mysql: {
