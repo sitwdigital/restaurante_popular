@@ -12,6 +12,13 @@ class NewsItem {
   NewsItem(this.title, this.imageUrl, this.date);
 }
 
+class DestaqueItem {
+  final String imageUrl;
+  final String link;
+
+  DestaqueItem(this.imageUrl, this.link);
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -20,7 +27,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<String> destaqueImages = [];
+  List<DestaqueItem> destaqueItems = [];
   List<NewsItem> noticias = [];
   bool isLoading = true;
 
@@ -29,98 +36,132 @@ class _HomeScreenState extends State<HomeScreen> {
   String cafe = '';
   String almoco = '';
   String jantar = '';
+  String horarioCafe = '';
+  String horarioAlmoco = '';
+  String horarioJantar = '';
+  String diasFechado = '';
   String valorCafe = '';
   String valorAlmoco = '';
   String valorJantar = '';
 
+  static const _baseUrl = 'http://192.168.15.21:1337';
+
   @override
   void initState() {
     super.initState();
-    fetchData();
+    fetchAllData();
   }
 
-  Future<void> fetchData() async {
-    try {
-      final response = await http.get(Uri.parse(
-        'http://192.168.15.12:1337/api/home-screens?populate[noticias][populate]=imagem&populate[destaque1]=*&populate[destaque2]=*',
-      ));
+  Future<void> fetchAllData() async {
+    setState(() {
+      isLoading = true;
+    });
 
+    await Future.wait([
+      fetchFuncionamento(),
+      fetchDestaques(),
+      fetchNoticias(),
+    ]);
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> fetchFuncionamento() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/api/home-screens'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final attributes = data['data'][0]['attributes'];
+        final homeData = data['data'][0];
 
-        // Destaques
-        List<String> destaques = [];
-        if (attributes['destaque1'] != null &&
-            attributes['destaque1']['data'] != null &&
-            attributes['destaque1']['data']['attributes']['url'] != null) {
-          final url = attributes['destaque1']['data']['attributes']['url'];
-          destaques.add('http://192.168.15.12:1337$url');
-        }
-        if (attributes['destaque2'] != null &&
-            attributes['destaque2']['data'] != null &&
-            attributes['destaque2']['data']['attributes']['url'] != null) {
-          final url = attributes['destaque2']['data']['attributes']['url'];
-          destaques.add('http://192.168.15.12:1337$url');
-        }
-
-        // Notícias
-        List<NewsItem> newsList = [];
-        if (attributes['noticias'] != null && attributes['noticias']['data'] != null) {
-          for (var n in attributes['noticias']['data'].take(3)) {
-            final attrs = n['attributes'];
-            final title = attrs['titulo'] ?? 'Sem título';
-            final date = attrs['data'] ?? '';
-            String imageUrl = '';
-
-            if (attrs['imagem'] != null &&
-                attrs['imagem']['data'] != null &&
-                attrs['imagem']['data']['attributes']['url'] != null) {
-              final imgUrl = attrs['imagem']['data']['attributes']['url'];
-              imageUrl = 'http://192.168.15.12:1337$imgUrl';
-            }
-
-            newsList.add(NewsItem(title, imageUrl, date));
-          }
-        }
-
-        // Funcionamento e valores
-        final statusFuncionamento = attributes['status'] ?? 'Fechado';
-        final diasFuncionamento = attributes['dias'] ?? '';
-        final cafeHorario = attributes['cafe'] ?? '';
-        final almocoHorario = attributes['almoco'] ?? '';
-        final jantarHorario = attributes['jantar'] ?? '';
-        final valorCafeApi = attributes['valor_cafe'] ?? '';
-        final valorAlmocoApi = attributes['valor_almoco'] ?? '';
-        final valorJantarApi = attributes['valor_jantar'] ?? '';
+        final aberto = homeData['aberto'] ?? false;
 
         setState(() {
-          destaqueImages = destaques;
-          noticias = newsList;
-
-          status = statusFuncionamento;
-          dias = diasFuncionamento;
-          cafe = cafeHorario;
-          almoco = almocoHorario;
-          jantar = jantarHorario;
-          valorCafe = valorCafeApi;
-          valorAlmoco = valorAlmocoApi;
-          valorJantar = valorJantarApi;
-
-          isLoading = false;
+          status = aberto ? 'Aberto' : 'Fechado';
+          dias = homeData['dias_funcionamento'] ?? '';
+          cafe = homeData['cafe_da_manha'] ?? '';
+          almoco = homeData['almoco'] ?? '';
+          jantar = homeData['jantar'] ?? '';
+          horarioCafe = homeData['horario_cafe'] ?? '';
+          horarioAlmoco = homeData['horario_almoco'] ?? '';
+          horarioJantar = homeData['horario_jantar'] ?? '';
+          diasFechado = homeData['dias_fechado'] ?? '';
+          valorCafe = homeData['valor_cafe'] ?? '';
+          valorAlmoco = homeData['valor_almoco'] ?? '';
+          valorJantar = homeData['valor_jantar'] ?? '';
         });
-      } else {
-        print('Erro ao carregar dados: ${response.statusCode}');
       }
     } catch (e) {
-      print('Erro: $e');
+      print('Erro ao carregar funcionamento: $e');
     }
   }
 
-  Future<void> _launchURL() async {
-    final Uri url = Uri.parse('https://maranhaolivredafome.ma.gov.br/#funciona');
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      throw Exception('Não foi possível abrir o link');
+  Future<void> fetchDestaques() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/api/homes?populate=imagem'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final list = List<Map<String, dynamic>>.from(data['data']);
+
+        List<DestaqueItem> items = [];
+
+        for (var item in list) {
+          String imageUrl = '';
+          final link = item['link'] ?? '';
+
+          final imgField = item['imagem'];
+          if (imgField is Map) {
+            final url = imgField['url'] as String?;
+            if (url != null && url.isNotEmpty) {
+              imageUrl = '$_baseUrl$url';
+            }
+          }
+
+          if (imageUrl.isNotEmpty && link.isNotEmpty) {
+            items.add(DestaqueItem(imageUrl, link));
+          }
+        }
+
+        setState(() {
+          destaqueItems = items;
+        });
+      }
+    } catch (e) {
+      print('Erro ao carregar destaques: $e');
+    }
+  }
+
+  Future<void> fetchNoticias() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/api/noticias?populate=imagem'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final noticiasData = List<Map<String, dynamic>>.from(data['data']);
+
+        List<NewsItem> newsList = [];
+        for (var n in noticiasData.take(3)) {
+          final title = n['titulo'] ?? 'Sem título';
+          final date = n['data'] ?? '';
+          String imageUrl = '';
+
+          final imgField = n['imagem'];
+          if (imgField is Map) {
+            final url = imgField['url'] as String?;
+            if (url != null && url.isNotEmpty) {
+              imageUrl = '$_baseUrl$url';
+            }
+          }
+
+          newsList.add(NewsItem(title, imageUrl, date));
+        }
+
+        setState(() {
+          noticias = newsList;
+        });
+      }
+    } catch (e) {
+      print('Erro ao carregar notícias: $e');
     }
   }
 
@@ -134,177 +175,163 @@ class _HomeScreenState extends State<HomeScreen> {
         bottom: false,
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  // AppBar
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        SvgPicture.asset(
-                          'assets/images/logo.svg',
-                          height: 40,
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.notifications_none, size: 28, color: Colors.red),
-                          onPressed: () {},
-                        ),
-                      ],
-                    ),
-                  ),
+            : SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
 
-                  // Conteúdo
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 16),
+                    // Destaques
+                    _buildSectionTitle('Destaques', 'Veja o prato do dia, avisos e novidades.', context),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 300,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: destaqueItems.length,
+                        itemBuilder: (context, i) {
+                          final item = destaqueItems[i];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: GestureDetector(
+                              onTap: () async {
+                                final Uri url = Uri.parse(item.link);
+                                if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                                  throw Exception('Não foi possível abrir o link');
+                                }
+                              },
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: SizedBox(
+                                  width: screenWidth * 0.9,
+                                  child: Image.network(
+                                    item.imageUrl,
+                                    fit: BoxFit.fitWidth,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
 
-                          // Destaques
-                          _buildSectionTitle('Destaques', 'Veja o prato do dia, avisos e novidades.', context),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 300,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: destaqueImages.length,
-                              itemBuilder: (context, i) {
-                                Widget imageWidget = ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: SizedBox(
-                                    width: screenWidth * 0.9,
+                    const SizedBox(height: 24),
+
+                    // Notícias
+                    _buildSectionTitle('Notícias', 'Acompanhe inaugurações, manutenções e outras notícias.', context),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 250,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: noticias.length,
+                        itemBuilder: (context, i) {
+                          final item = noticias[i];
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Container(
+                              width: screenWidth * 0.6,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      topRight: Radius.circular(12),
+                                    ),
                                     child: Image.network(
-                                      destaqueImages[i],
+                                      item.imageUrl,
+                                      width: double.infinity,
+                                      height: 120,
                                       fit: BoxFit.cover,
                                     ),
                                   ),
-                                );
-
-                                if (i == 0) {
-                                  imageWidget = GestureDetector(
-                                    onTap: _launchURL,
-                                    child: imageWidget,
-                                  );
-                                }
-
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: imageWidget,
-                                );
-                              },
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Notícias
-                          _buildSectionTitle('Notícias', 'Acompanhe inaugurações, manutenções e outras notícias.', context),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 250,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: noticias.length,
-                              itemBuilder: (context, i) {
-                                final item = noticias[i];
-
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: Container(
-                                    width: screenWidth * 0.6,
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(12),
-                                      color: Colors.white,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: const BorderRadius.only(
-                                            topLeft: Radius.circular(12),
-                                            topRight: Radius.circular(12),
-                                          ),
-                                          child: Image.network(
-                                            item.imageUrl,
-                                            width: double.infinity,
-                                            height: 120,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: Text(
-                                            item.title,
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFFE30613),
-                                            ),
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                          child: Text(
-                                            item.date,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      item.title,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFE30613),
+                                      ),
                                     ),
                                   ),
-                                );
-                              },
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                    child: Text(
+                                      item.date,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Funcionamento
-                          Text(
-                            'Funcionamento',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Confira os dias, horários e valores de funcionamento.',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 12),
-                          Column(
-                            children: [
-                              _buildHorarioItem(Icons.info, status == 'Aberto' ? Colors.green : Colors.red, 'Status: $status'),
-                              _buildHorarioItem(Icons.calendar_today, Colors.green, 'Dias: $dias'),
-                              _buildHorarioItem(Icons.breakfast_dining, Colors.green, 'Café: $cafe (R\$ $valorCafe)'),
-                              _buildHorarioItem(Icons.lunch_dining, Colors.green, 'Almoço: $almoco (R\$ $valorAlmoco)'),
-                              _buildHorarioItem(Icons.dinner_dining, Colors.green, 'Jantar: $jantar (R\$ $valorJantar)'),
-                            ],
-                          ),
-
-                          const SizedBox(height: 16),
-                        ],
+                          );
+                        },
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 24),
+
+                    // Valores
+                    Text(
+                      'Valores',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Veja os valores acessíveis das refeições.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      children: [
+                        _buildValorItem('Café da Manhã', valorCafe),
+                        _buildValorItem('Almoço', valorAlmoco),
+                        _buildValorItem('Jantar', valorJantar),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Funcionamento
+                    Text(
+                      'Funcionamento',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Confira os dias e horários de funcionamento.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      children: [
+                        _buildHorarioItem(Icons.check, Colors.green, dias),
+                        _buildHorarioItem(Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
+                        _buildHorarioItem(Icons.check, Colors.green, 'Almoço: $horarioAlmoco'),
+                        _buildHorarioItem(Icons.check, Colors.green, 'Jantar: $horarioJantar'),
+                        _buildHorarioItem(Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
       ),
     );
@@ -318,6 +345,32 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 4),
         Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
       ],
+    );
+  }
+
+  Widget _buildValorItem(String title, String valor) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Valor: R\$ $valor',
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+        ],
+      ),
     );
   }
 
