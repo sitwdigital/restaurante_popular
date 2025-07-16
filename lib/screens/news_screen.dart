@@ -34,7 +34,7 @@ class _NewsScreenState extends State<NewsScreen> {
 
   final TextEditingController _buscaController = TextEditingController();
 
-  static const _baseUrl = 'http://192.168.15.21:1337';
+  static const _baseUrl = 'http://192.168.15.3:1337';
 
   @override
   void initState() {

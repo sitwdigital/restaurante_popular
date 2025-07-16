@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String valorAlmoco = '';
   String valorJantar = '';
 
-  static const _baseUrl = 'http://192.168.15.21:1337';
+  static const _baseUrl = 'http://192.168.15.3:1337';
 
   @override
   void initState() {
