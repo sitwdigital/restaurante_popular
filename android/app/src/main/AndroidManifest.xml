@@ -12,10 +12,9 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
-        <!-- ✅ CHAVE DA API DO GOOGLE MAPS - FORA DA TAG <activity> -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="SUA_CHAVE_AQUI" />
+            android:value="AIzaSyDb4OiwLolIKASP4noUPVkabLuvyvK_UI8" />
 
         <!-- Flutter normal -->
         <meta-data

@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String valorAlmoco = '';
   String valorJantar = '';
 
-  static const _baseUrl = 'http://192.168.15.3:1337';
+  static const _baseUrl = 'http://192.168.15.11:1337';
 
   @override
   void initState() {
@@ -176,160 +176,165 @@ class _HomeScreenState extends State<HomeScreen> {
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          SvgPicture.asset('assets/images/logo.svg', height: 40),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.notifications_none, size: 28, color: Colors.red),
+                            onPressed: () {},
+                          ),
+                        ],
+                      ),
+                    ),
 
-                    // Destaques
-                    _buildSectionTitle('Destaques', 'Veja o prato do dia, avisos e novidades.', context),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 300,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: destaqueItems.length,
-                        itemBuilder: (context, i) {
-                          final item = destaqueItems[i];
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: GestureDetector(
-                              onTap: () async {
-                                final Uri url = Uri.parse(item.link);
-                                if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                                  throw Exception('Não foi possível abrir o link');
-                                }
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionTitle('Destaques', 'Veja o prato do dia, avisos e novidades.', context),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 300,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: destaqueItems.length,
+                              itemBuilder: (context, i) {
+                                final item = destaqueItems[i];
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      final Uri url = Uri.parse(item.link);
+                                      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                                        throw Exception('Não foi possível abrir o link');
+                                      }
+                                    },
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: SizedBox(
+                                        width: screenWidth * 0.9,
+                                        child: Image.network(
+                                          item.imageUrl,
+                                          fit: BoxFit.fitWidth,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
                               },
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: SizedBox(
-                                  width: screenWidth * 0.9,
-                                  child: Image.network(
-                                    item.imageUrl,
-                                    fit: BoxFit.fitWidth,
-                                  ),
-                                ),
-                              ),
                             ),
-                          );
-                        },
+                          ),
+                          const SizedBox(height: 24),
+                          _buildSectionTitle('Notícias', 'Acompanhe inaugurações, manutenções e outras notícias.', context),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 250,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: noticias.length,
+                              itemBuilder: (context, i) {
+                                final item = noticias[i];
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: Container(
+                                    width: screenWidth * 0.6,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: Colors.white,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: const BorderRadius.only(
+                                            topLeft: Radius.circular(12),
+                                            topRight: Radius.circular(12),
+                                          ),
+                                          child: Image.network(
+                                            item.imageUrl,
+                                            width: double.infinity,
+                                            height: 120,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: Text(
+                                            item.title,
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFFE30613),
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                          child: Text(
+                                            item.date,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text('Valores', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+                          const SizedBox(height: 4),
+                          Text('Veja os valores acessíveis das refeições.', style: Theme.of(context).textTheme.bodyMedium),
+                          const SizedBox(height: 12),
+                          Column(
+                            children: [
+                              _buildValorItem('Café da Manhã', valorCafe),
+                              _buildValorItem('Almoço', valorAlmoco),
+                              _buildValorItem('Jantar', valorJantar),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          Text('Funcionamento', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+                          const SizedBox(height: 4),
+                          Text('Confira os dias e horários de funcionamento.', style: Theme.of(context).textTheme.bodyMedium),
+                          const SizedBox(height: 12),
+                          Column(
+                            children: [
+                              _buildHorarioItem(Icons.check, Colors.green, dias),
+                              _buildHorarioItem(Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
+                              _buildHorarioItem(Icons.check, Colors.green, 'Almoço: $horarioAlmoco'),
+                              _buildHorarioItem(Icons.check, Colors.green, 'Jantar: $horarioJantar'),
+                              _buildHorarioItem(Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                       ),
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // Notícias
-                    _buildSectionTitle('Notícias', 'Acompanhe inaugurações, manutenções e outras notícias.', context),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 250,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: noticias.length,
-                        itemBuilder: (context, i) {
-                          final item = noticias[i];
-
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: Container(
-                              width: screenWidth * 0.6,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(12),
-                                color: Colors.white,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(12),
-                                      topRight: Radius.circular(12),
-                                    ),
-                                    child: Image.network(
-                                      item.imageUrl,
-                                      width: double.infinity,
-                                      height: 120,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Text(
-                                      item.title,
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFFE30613),
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                    child: Text(
-                                      item.date,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Valores
-                    Text(
-                      'Valores',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Veja os valores acessíveis das refeições.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    Column(
-                      children: [
-                        _buildValorItem('Café da Manhã', valorCafe),
-                        _buildValorItem('Almoço', valorAlmoco),
-                        _buildValorItem('Jantar', valorJantar),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Funcionamento
-                    Text(
-                      'Funcionamento',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Confira os dias e horários de funcionamento.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    Column(
-                      children: [
-                        _buildHorarioItem(Icons.check, Colors.green, dias),
-                        _buildHorarioItem(Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
-                        _buildHorarioItem(Icons.check, Colors.green, 'Almoço: $horarioAlmoco'),
-                        _buildHorarioItem(Icons.check, Colors.green, 'Jantar: $horarioJantar'),
-                        _buildHorarioItem(Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
                   ],
                 ),
               ),
