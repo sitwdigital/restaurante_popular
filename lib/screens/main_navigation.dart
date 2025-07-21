@@ -3,7 +3,7 @@ import 'home_screen.dart';
 import 'cardapio_screen.dart';
 import 'news_screen.dart';
 import 'unidades_screen.dart';
-// import 'sobre_screen.dart';
+import 'sobre_screen.dart';
 
 
 class MainNavigation extends StatefulWidget {
@@ -21,7 +21,7 @@ class _MainNavigationState extends State<MainNavigation> {
     CardapioScreen(),
     NewsScreen(),
     UnidadesScreen(),
-    // SobreScreen(),
+    SobreScreen(),
   ];
 
   @override

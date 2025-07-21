@@ -176,22 +176,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
                           SvgPicture.asset('assets/images/logo.svg', height: 40),
                           const Spacer(),
@@ -201,141 +191,133 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                    ),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionTitle('Destaques', 'Veja o prato do dia, avisos e novidades.', context),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 300,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: destaqueItems.length,
-                              itemBuilder: (context, i) {
-                                final item = destaqueItems[i];
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: GestureDetector(
-                                    onTap: () async {
-                                      final Uri url = Uri.parse(item.link);
-                                      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                                        throw Exception('Não foi possível abrir o link');
-                                      }
-                                    },
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: SizedBox(
-                                        width: screenWidth * 0.9,
-                                        child: Image.network(
-                                          item.imageUrl,
-                                          fit: BoxFit.fitWidth,
+                      const SizedBox(height: 16),
+                      _buildSectionTitle('Destaques', 'Veja o prato do dia, avisos e novidades.', context),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 300,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: destaqueItems.length,
+                          itemBuilder: (context, i) {
+                            final item = destaqueItems[i];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: GestureDetector(
+                                onTap: () async {
+                                  final Uri url = Uri.parse(item.link);
+                                  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                                    throw Exception('Não foi possível abrir o link');
+                                  }
+                                },
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SizedBox(
+                                    width: screenWidth * 0.9,
+                                    child: Image.network(
+                                      item.imageUrl,
+                                      fit: BoxFit.fitWidth,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Notícias', 'Acompanhe inaugurações, manutenções e outras notícias.', context),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 250,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: noticias.length,
+                          itemBuilder: (context, i) {
+                            final item = noticias[i];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: Container(
+                                width: screenWidth * 0.6,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: Colors.white,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(12),
+                                        topRight: Radius.circular(12),
+                                      ),
+                                      child: Image.network(
+                                        item.imageUrl,
+                                        width: double.infinity,
+                                        height: 120,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(
+                                        item.title,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFE30613),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildSectionTitle('Notícias', 'Acompanhe inaugurações, manutenções e outras notícias.', context),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 250,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: noticias.length,
-                              itemBuilder: (context, i) {
-                                final item = noticias[i];
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: Container(
-                                    width: screenWidth * 0.6,
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(12),
-                                      color: Colors.white,
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                      child: Text(
+                                        item.date,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: const BorderRadius.only(
-                                            topLeft: Radius.circular(12),
-                                            topRight: Radius.circular(12),
-                                          ),
-                                          child: Image.network(
-                                            item.imageUrl,
-                                            width: double.infinity,
-                                            height: 120,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: Text(
-                                            item.title,
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFFE30613),
-                                            ),
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                          child: Text(
-                                            item.date,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Text('Valores', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
-                          const SizedBox(height: 4),
-                          Text('Veja os valores acessíveis das refeições.', style: Theme.of(context).textTheme.bodyMedium),
-                          const SizedBox(height: 12),
-                          Column(
-                            children: [
-                              _buildValorItem('Café da Manhã', valorCafe),
-                              _buildValorItem('Almoço', valorAlmoco),
-                              _buildValorItem('Jantar', valorJantar),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          Text('Funcionamento', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
-                          const SizedBox(height: 4),
-                          Text('Confira os dias e horários de funcionamento.', style: Theme.of(context).textTheme.bodyMedium),
-                          const SizedBox(height: 12),
-                          Column(
-                            children: [
-                              _buildHorarioItem(Icons.check, Colors.green, dias),
-                              _buildHorarioItem(Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
-                              _buildHorarioItem(Icons.check, Colors.green, 'Almoço: $horarioAlmoco'),
-                              _buildHorarioItem(Icons.check, Colors.green, 'Jantar: $horarioJantar'),
-                              _buildHorarioItem(Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text('Valores', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+                      const SizedBox(height: 4),
+                      Text('Veja os valores acessíveis das refeições.', style: Theme.of(context).textTheme.bodyMedium),
+                      const SizedBox(height: 12),
+                      Column(
+                        children: [
+                          _buildValorItem('Café da Manhã', valorCafe, 'cafe.png'),
+                          _buildValorItem('Almoço', valorAlmoco, 'almoco.png'),
+                          _buildValorItem('Jantar', valorJantar, 'jantar.png'),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      Text('Funcionamento', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+                      const SizedBox(height: 4),
+                      Text('Confira os dias e horários de funcionamento.', style: Theme.of(context).textTheme.bodyMedium),
+                      const SizedBox(height: 12),
+                      Column(
+                        children: [
+                          _buildHorarioItem(Icons.check, Colors.green, dias),
+                          _buildHorarioItem(Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
+                          _buildHorarioItem(Icons.check, Colors.green, 'Almoço: $horarioAlmoco'),
+                          _buildHorarioItem(Icons.check, Colors.green, 'Jantar: $horarioJantar'),
+                          _buildHorarioItem(Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               ),
       ),
@@ -353,26 +335,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildValorItem(String title, String valor) {
+  Widget _buildValorItem(String tipo, String valor, String imagem) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.green,
         borderRadius: BorderRadius.circular(12),
+        image: DecorationImage(
+          image: AssetImage('assets/images/$imagem'),
+          fit: BoxFit.cover,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            tipo,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Valor: R\$ $valor',
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+            ),
           ),
         ],
       ),

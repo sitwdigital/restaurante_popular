@@ -14,6 +14,7 @@ class Unidade {
   final double latitude;
   final double longitude;
   final double avaliacao;
+  late final double distanciaKm;
 
   Unidade({
     required this.nome,
@@ -24,13 +25,13 @@ class Unidade {
     required this.avaliacao,
   });
 
-  double distanciaDe(LatLng local) {
-    return Geolocator.distanceBetween(
+  void calcularDistancia(LatLng local) {
+    distanciaKm = Geolocator.distanceBetween(
       local.latitude,
       local.longitude,
       latitude,
       longitude,
-    );
+    ) / 1000;
   }
 }
 
@@ -42,7 +43,7 @@ class UnidadesScreen extends StatefulWidget {
 }
 
 class _UnidadesScreenState extends State<UnidadesScreen> {
-  final String _baseUrl = 'http://192.168.15.11:1337';
+  final String _baseUrl = 'https://sitw.com.br/restaurante_popular';
   List<Unidade> unidades = [];
   Set<Marker> markers = {};
   LatLng? userLocation;
@@ -61,34 +62,38 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     userLocation = LatLng(pos.latitude, pos.longitude);
 
-    final response = await http.get(Uri.parse('$_baseUrl/api/unidades?populate=*'));
-    final data = jsonDecode(response.body);
+    final response = await http.get(Uri.parse('$_baseUrl/wp-json/wp/v2/unidade'));
+    if (response.statusCode != 200) {
+      setState(() => loading = false);
+      return;
+    }
 
+    final List<dynamic> data = jsonDecode(response.body);
     List<Unidade> carregadas = [];
 
-    for (var item in data['data']) {
-      String imageUrl = '';
-      final imgField = item['imagem'];
-      if (imgField is Map) {
-        final url = imgField['url'] as String?;
-        if (url != null && url.isNotEmpty) {
-          imageUrl = '$_baseUrl$url';
-        }
+    for (var item in data) {
+      final acf = item['acf'] ?? {};
+
+      String imagemUrl = '';
+      final imagemData = acf['imagem'];
+      if (imagemData is Map && imagemData.containsKey('url')) {
+        imagemUrl = imagemData['url'];
       }
 
       final unidade = Unidade(
-        nome: item['nome'],
-        endereco: item['endereco'] ?? '',
-        imagemUrl: imageUrl,
-        latitude: item['latitude']?.toDouble() ?? 0.0,
-        longitude: item['longitude']?.toDouble() ?? 0.0,
-        avaliacao: item['avaliacao']?.toDouble() ?? 0.0,
+        nome: acf['nome'] ?? item['title']['rendered'] ?? '',
+        endereco: acf['endereco'] ?? '',
+        imagemUrl: imagemUrl,
+        latitude: double.tryParse(acf['latitude'] ?? '') ?? 0.0,
+        longitude: double.tryParse(acf['longitude'] ?? '') ?? 0.0,
+        avaliacao: double.tryParse(acf['avaliacao']?.toString() ?? '0') ?? 0.0,
       );
 
+      unidade.calcularDistancia(userLocation!);
       carregadas.add(unidade);
     }
 
-    carregadas.sort((a, b) => a.distanciaDe(userLocation!).compareTo(b.distanciaDe(userLocation!)));
+    carregadas.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
 
     setState(() {
       unidades = carregadas;
@@ -155,6 +160,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -200,7 +206,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                       onChanged: _filtrar,
                       decoration: InputDecoration(
                         hintText: 'Buscar por cidade ou bairro',
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -260,7 +266,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF7F7F7),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.06),
@@ -270,7 +276,39 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                         ],
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(u.nome, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 4),
+                                _buildEstrelas(u.avaliacao),
+                                const SizedBox(height: 4),
+                                Text(u.endereco, style: const TextStyle(fontSize: 12)),
+                                const SizedBox(height: 4),
+                                Text('${u.distanciaKm.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: 200,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _abrirRota(u.latitude, u.longitude),
+                                    icon: const Icon(Icons.send, size: 16),
+                                    label: const Text("Ver rota"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF204181),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      textStyle: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Image.network(
@@ -279,32 +317,6 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                               height: 80,
                               fit: BoxFit.cover,
                               errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(u.nome, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                const SizedBox(height: 4),
-                                Text(u.endereco, style: const TextStyle(fontSize: 12)),
-                                const SizedBox(height: 4),
-                                _buildEstrelas(u.avaliacao),
-                                const SizedBox(height: 6),
-                                ElevatedButton.icon(
-                                  onPressed: () => _abrirRota(u.latitude, u.longitude),
-                                  icon: const Icon(Icons.navigation, size: 16),
-                                  label: const Text("Ver rota"),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF204181),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    textStyle: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
                         ],

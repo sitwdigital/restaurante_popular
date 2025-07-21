@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'main_navigation.dart'; // ✅ Importa só o main_navigation
+import 'package:video_player/video_player.dart';
+import 'main_navigation.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -9,28 +9,40 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+class _SplashScreenState extends State<SplashScreen> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
+    _controller = VideoPlayerController.asset("assets/images/splash.mp4");
 
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-
-    _controller.forward();
-
-    Timer(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainNavigation()), // ✅ agora abre corretamente
-      );
+    _controller.initialize().then((_) {
+      if (mounted) {
+        _controller.play();
+        _controller.setLooping(false);
+        setState(() {
+          _isInitialized = true;
+        });
+      }
     });
+
+    _controller.addListener(() {
+      if (_controller.value.isInitialized &&
+          _controller.value.position >= _controller.value.duration) {
+        _navigateToNext();
+      }
+    });
+  }
+
+  void _navigateToNext() {
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+      );
+    }
   }
 
   @override
@@ -42,17 +54,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: FadeTransition(
-          opacity: _animation,
-          child: Image.asset(
-            'assets/images/logo_governo.png', // troque para o seu caminho correto
-            width: 180,
-            height: 180,
-          ),
-        ),
-      ),
+      backgroundColor: Colors.white, // fundo branco enquanto carrega (sem loading visível)
+      body: _isInitialized
+          ? SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _controller.value.size.width,
+                  height: _controller.value.size.height,
+                  child: VideoPlayer(_controller),
+                ),
+              ),
+            )
+          : const SizedBox.expand(), // tela branca até estar pronto
     );
   }
 }

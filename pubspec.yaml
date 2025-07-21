@@ -20,6 +20,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
+  video_player: ^2.8.2
 
 dev_dependencies:
   flutter_test:
@@ -31,12 +32,13 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/destaque1.jpg
-    - assets/images/destaque2.jpg
-    - assets/images/noticias1.jpg
-    - assets/images/noticias2.jpg
-    - assets/images/noticias3.jpg
     - assets/images/logo.svg
     - assets/images/logo_governo.png
-    - assets/images/mapa_fake.jpg
-    - assets/images/coroado.jpg
+    - assets/images/sobre1.png
+    - assets/images/sobre2.png
+    - assets/images/sobre3.png
+    - assets/images/logo.svg
+    - assets/images/almoco.png
+    - assets/images/cafe.png
+    - assets/images/jantar.png
+    - assets/images/splash.mp4

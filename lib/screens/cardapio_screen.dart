@@ -11,16 +11,8 @@ class CardapioScreen extends StatefulWidget {
 }
 
 class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStateMixin {
-  final List<String> diasemana = [
-    'segunda',
-    'terca',
-    'quarta',
-    'quinta',
-    'sexta',
-  ];
-
+  final List<String> diasemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
   String? diaSelecionado;
-
   bool expandedCafe = false;
   bool expandedAlmoco = false;
   bool expandedJantar = false;
@@ -36,19 +28,13 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
 
   Future<void> fetchCardapio() async {
     try {
-      print('Chamando Strapi...');
       final response = await http.get(Uri.parse('http://192.168.15.11:1337/api/cardapio-do-dias'));
-
-      print('Status code: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Body: ${response.body}');
-
         final List items = data['data'];
         Map<String, dynamic> parsed = {};
 
         for (var item in items) {
-          // Corrigido: sem usar 'attributes'
           String dia = item['diasemana'];
 
           String extractText(List<dynamic> blocks) {
@@ -67,9 +53,7 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
           };
         }
 
-        setState(() {
-          cardapioData = parsed;
-        });
+        setState(() => cardapioData = parsed);
       } else {
         print('Erro ao carregar cardápio: ${response.statusCode}');
       }
@@ -95,7 +79,6 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
         bottom: false,
         child: Column(
           children: [
-            // AppBar
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -110,10 +93,7 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  SvgPicture.asset(
-                    'assets/images/logo.svg',
-                    height: 40,
-                  ),
+                  SvgPicture.asset('assets/images/logo.svg', height: 40),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.notifications_none, size: 28, color: Colors.red),
@@ -122,7 +102,6 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                 ],
               ),
             ),
-
             Expanded(
               child: cardapioData.isEmpty
                   ? const Center(child: CircularProgressIndicator())
@@ -142,8 +121,6 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           const SizedBox(height: 16),
-
-                          // Dropdown azul
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
@@ -173,31 +150,18 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                               },
                             ),
                           ),
-
                           const SizedBox(height: 24),
-
                           _buildCardapioSection('Café da Manhã', expandedCafe, () {
-                            setState(() {
-                              expandedCafe = !expandedCafe;
-                            });
-                          }, getDetalhes('cafe')),
-
+                            setState(() => expandedCafe = !expandedCafe);
+                          }, getDetalhes('cafe'), 'cafe.png'),
                           const SizedBox(height: 12),
-
                           _buildCardapioSection('Almoço', expandedAlmoco, () {
-                            setState(() {
-                              expandedAlmoco = !expandedAlmoco;
-                            });
-                          }, getDetalhes('almoco')),
-
+                            setState(() => expandedAlmoco = !expandedAlmoco);
+                          }, getDetalhes('almoco'), 'almoco.png'),
                           const SizedBox(height: 12),
-
                           _buildCardapioSection('Jantar', expandedJantar, () {
-                            setState(() {
-                              expandedJantar = !expandedJantar;
-                            });
-                          }, getDetalhes('jantar')),
-
+                            setState(() => expandedJantar = !expandedJantar);
+                          }, getDetalhes('jantar'), 'jantar.png'),
                           const SizedBox(height: 16),
                         ],
                       ),
@@ -214,6 +178,7 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
     bool expanded,
     VoidCallback onTap,
     Map<String, String> detalhes,
+    String imageAsset,
   ) {
     return GestureDetector(
       onTap: onTap,
@@ -221,19 +186,29 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            height: 80,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFF43B649),
               borderRadius: BorderRadius.circular(12),
+              image: DecorationImage(
+                image: AssetImage('assets/images/$imageAsset'),
+                fit: BoxFit.cover,
+              ),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     label,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      shadows: [Shadow(blurRadius: 4, color: Colors.black45, offset: Offset(0, 1))],
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 AnimatedRotation(
                   turns: expanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 300),
