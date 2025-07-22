@@ -62,35 +62,49 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     userLocation = LatLng(pos.latitude, pos.longitude);
 
-    final response = await http.get(Uri.parse('$_baseUrl/wp-json/wp/v2/unidade'));
-    if (response.statusCode != 200) {
-      setState(() => loading = false);
-      return;
-    }
-
-    final List<dynamic> data = jsonDecode(response.body);
     List<Unidade> carregadas = [];
+    int page = 1;
+    bool hasMore = true;
 
-    for (var item in data) {
-      final acf = item['acf'] ?? {};
-
-      String imagemUrl = '';
-      final imagemData = acf['imagem'];
-      if (imagemData is Map && imagemData.containsKey('url')) {
-        imagemUrl = imagemData['url'];
-      }
-
-      final unidade = Unidade(
-        nome: acf['nome'] ?? item['title']['rendered'] ?? '',
-        endereco: acf['endereco'] ?? '',
-        imagemUrl: imagemUrl,
-        latitude: double.tryParse(acf['latitude'] ?? '') ?? 0.0,
-        longitude: double.tryParse(acf['longitude'] ?? '') ?? 0.0,
-        avaliacao: double.tryParse(acf['avaliacao']?.toString() ?? '0') ?? 0.0,
+    while (hasMore) {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/wp-json/wp/v2/unidade?per_page=100&page=$page'),
       );
 
-      unidade.calcularDistancia(userLocation!);
-      carregadas.add(unidade);
+      if (response.statusCode != 200) {
+        hasMore = false;
+        break;
+      }
+
+      final List<dynamic> data = jsonDecode(response.body);
+      if (data.isEmpty) {
+        hasMore = false;
+        break;
+      }
+
+      for (var item in data) {
+        final acf = item['acf'] ?? {};
+
+        String imagemUrl = '';
+        final imagemData = acf['imagem'];
+        if (imagemData is Map && imagemData.containsKey('url')) {
+          imagemUrl = imagemData['url'];
+        }
+
+        final unidade = Unidade(
+          nome: acf['nome'] ?? item['title']['rendered'] ?? '',
+          endereco: acf['endereco'] ?? '',
+          imagemUrl: imagemUrl,
+          latitude: double.tryParse(acf['latitude'] ?? '') ?? 0.0,
+          longitude: double.tryParse(acf['longitude'] ?? '') ?? 0.0,
+          avaliacao: double.tryParse(acf['avaliacao']?.toString() ?? '0') ?? 0.0,
+        );
+
+        unidade.calcularDistancia(userLocation!);
+        carregadas.add(unidade);
+      }
+
+      page++;
     }
 
     carregadas.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));

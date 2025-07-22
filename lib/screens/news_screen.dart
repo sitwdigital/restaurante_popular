@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 
 class NewsItem {
   final String title;
@@ -33,8 +34,7 @@ class _NewsScreenState extends State<NewsScreen> {
   final int noticiasPorPagina = 5;
 
   final TextEditingController _buscaController = TextEditingController();
-
-  static const _baseUrl = 'http://192.168.15.11:1337';
+  static const _baseUrl = 'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/noticia';
 
   @override
   void initState() {
@@ -43,41 +43,46 @@ class _NewsScreenState extends State<NewsScreen> {
   }
 
   Future<void> fetchNoticias() async {
-    final uri = Uri.parse('$_baseUrl/api/noticias?populate=imagem');
     try {
-      final res = await http.get(uri);
-      if (res.statusCode != 200) {
-        throw Exception('Status ${res.statusCode}');
-      }
+      final response = await http.get(Uri.parse(_baseUrl));
+      if (response.statusCode != 200) throw Exception('Erro ${response.statusCode}');
 
-      final body = json.decode(res.body);
-      final dataList = (body['data'] as List<dynamic>);
+      final List<dynamic> data = json.decode(response.body);
+      final List<NewsItem> loaded = [];
 
-      final loaded = <NewsItem>[];
-      for (var raw in dataList) {
-        final item = Map<String, dynamic>.from(raw);
+      for (var item in data) {
+        final acf = item['acf'];
+        if (acf == null) continue;
 
-        final title = item['titulo'] ?? 'Sem título';
-        final date = item['data'] ?? '';
-        final link = item['link'] ?? '';
+        final title = acf['titulo'] ?? 'Sem título';
+        final rawDate = acf['data'] ?? '';
+        final link = acf['link'] ?? '';
+        final imageField = acf['imagem'];
         String imageUrl = '';
 
-        // Imagem
-        final imgField = item['imagem'];
-        if (imgField is Map) {
-          final url = imgField['url'] as String?;
-          if (url != null && url.isNotEmpty) {
-            imageUrl = '$_baseUrl$url';
-          }
+        if (imageField is String) {
+          imageUrl = imageField;
+        } else if (imageField is Map && imageField['url'] != null) {
+          imageUrl = imageField['url'];
         }
 
         loaded.add(NewsItem(
           title: title,
-          date: date,
+          date: rawDate,
           link: link,
           imageUrl: imageUrl,
         ));
       }
+
+      loaded.sort((a, b) {
+        try {
+          final dateA = DateFormat('dd/MM/yyyy').parse(a.date);
+          final dateB = DateFormat('dd/MM/yyyy').parse(b.date);
+          return dateB.compareTo(dateA); // Mais recente primeiro
+        } catch (e) {
+          return 0;
+        }
+      });
 
       setState(() {
         todasNoticias = loaded;
@@ -91,9 +96,7 @@ class _NewsScreenState extends State<NewsScreen> {
 
   List<NewsItem> getNoticiasFiltradas() {
     if (busca.isEmpty) return todasNoticias;
-    return todasNoticias
-        .where((n) => n.title.toLowerCase().contains(busca.toLowerCase()))
-        .toList();
+    return todasNoticias.where((n) => n.title.toLowerCase().contains(busca.toLowerCase())).toList();
   }
 
   Future<void> _launchLink(String url) async {
@@ -164,10 +167,7 @@ class _NewsScreenState extends State<NewsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Notícias',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
-                        ),
+                        Text('Notícias', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
                         const SizedBox(height: 4),
                         Text(
                           'Acompanhe inaugurações, manutenções e outras notícias dos restaurantes populares.',
