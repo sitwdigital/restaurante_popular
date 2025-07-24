@@ -25,18 +25,16 @@ class Unidade {
     required this.avaliacao,
   });
 
-  void calcularDistancia(LatLng local) {
+  void calcularDistancia(LatLng userLoc) {
     distanciaKm = Geolocator.distanceBetween(
-      local.latitude,
-      local.longitude,
-      latitude,
-      longitude,
-    ) / 1000;
+          userLoc.latitude, userLoc.longitude,
+          latitude, longitude,
+        ) / 1000;
   }
 }
 
 class UnidadesScreen extends StatefulWidget {
-  const UnidadesScreen({super.key});
+  const UnidadesScreen({Key? key}) : super(key: key);
 
   @override
   State<UnidadesScreen> createState() => _UnidadesScreenState();
@@ -44,304 +42,277 @@ class UnidadesScreen extends StatefulWidget {
 
 class _UnidadesScreenState extends State<UnidadesScreen> {
   final String _baseUrl = 'https://sitw.com.br/restaurante_popular';
-  List<Unidade> unidades = [];
-  Set<Marker> markers = {};
-  LatLng? userLocation;
-  GoogleMapController? mapController;
-  bool loading = true;
-  String searchQuery = "";
+  List<Unidade> _allUnidades = [];
+  Set<Marker> _markers = {};
+  LatLng? _userLocation;
+  GoogleMapController? _mapController;
+  bool _loading = true;
+  String _search = '';
+
+  // pagination
+  int _currentPage = 1;
+  final int _perPage = 15;
 
   @override
   void initState() {
     super.initState();
-    _carregarDados();
+    _loadData();
   }
 
-  Future<void> _carregarDados() async {
+  Future<void> _loadData() async {
     await Permission.location.request();
     final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    userLocation = LatLng(pos.latitude, pos.longitude);
+    _userLocation = LatLng(pos.latitude, pos.longitude);
 
-    List<Unidade> carregadas = [];
+    final List<Unidade> list = [];
     int page = 1;
-    bool hasMore = true;
-
-    while (hasMore) {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/wp-json/wp/v2/unidade?per_page=100&page=$page'),
-      );
-
-      if (response.statusCode != 200) {
-        hasMore = false;
-        break;
-      }
-
-      final List<dynamic> data = jsonDecode(response.body);
-      if (data.isEmpty) {
-        hasMore = false;
-        break;
-      }
-
+    while (true) {
+      final res = await http.get(Uri.parse('$_baseUrl/wp-json/wp/v2/unidade?per_page=100&page=$page'));
+      if (res.statusCode != 200) break;
+      final data = jsonDecode(res.body) as List<dynamic>;
+      if (data.isEmpty) break;
       for (var item in data) {
         final acf = item['acf'] ?? {};
-
-        String imagemUrl = '';
-        final imagemData = acf['imagem'];
-        if (imagemData is Map && imagemData.containsKey('url')) {
-          imagemUrl = imagemData['url'];
-        }
-
-        final unidade = Unidade(
+        final lat = double.tryParse(acf['latitude'] ?? '') ?? 0.0;
+        final lng = double.tryParse(acf['longitude'] ?? '') ?? 0.0;
+        final u = Unidade(
           nome: acf['nome'] ?? item['title']['rendered'] ?? '',
           endereco: acf['endereco'] ?? '',
-          imagemUrl: imagemUrl,
-          latitude: double.tryParse(acf['latitude'] ?? '') ?? 0.0,
-          longitude: double.tryParse(acf['longitude'] ?? '') ?? 0.0,
+          imagemUrl: acf['imagem'] is Map ? acf['imagem']['url'] ?? '' : '',
+          latitude: lat,
+          longitude: lng,
           avaliacao: double.tryParse(acf['avaliacao']?.toString() ?? '0') ?? 0.0,
         );
-
-        unidade.calcularDistancia(userLocation!);
-        carregadas.add(unidade);
+        if (_userLocation != null) u.calcularDistancia(_userLocation!);
+        list.add(u);
       }
-
       page++;
     }
-
-    carregadas.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
-
+    list.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
     setState(() {
-      unidades = carregadas;
-      markers = carregadas.map((u) => Marker(
+      _allUnidades = list;
+      _markers = list.map((u) => Marker(
         markerId: MarkerId(u.nome),
         position: LatLng(u.latitude, u.longitude),
         infoWindow: InfoWindow(title: u.nome, snippet: u.endereco),
       )).toSet();
-      loading = false;
+      _loading = false;
     });
   }
 
-  void _focarMapa(Unidade unidade) {
-    mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(LatLng(unidade.latitude, unidade.longitude), 16),
-    );
-  }
-
-  void _filtrar(String query) {
+  void _onSearch(String text) {
     setState(() {
-      searchQuery = query.toLowerCase();
+      _search = text;
+      _currentPage = 1;
     });
   }
 
-  Future<void> _abrirRota(double latitude, double longitude) async {
-    final googleMapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude&travelmode=driving';
-    final wazeUrl = 'https://waze.com/ul?ll=$latitude,$longitude&navigate=yes';
-
-    if (await canLaunchUrl(Uri.parse(googleMapsUrl))) {
-      await launchUrl(Uri.parse(googleMapsUrl), mode: LaunchMode.externalApplication);
-    } else if (await canLaunchUrl(Uri.parse(wazeUrl))) {
-      await launchUrl(Uri.parse(wazeUrl), mode: LaunchMode.externalApplication);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível abrir o aplicativo de navegação.')),
-      );
-    }
+  List<Unidade> get _filtered {
+    final f = _allUnidades.where((u) {
+      return u.nome.toLowerCase().contains(_search.toLowerCase()) ||
+             u.endereco.toLowerCase().contains(_search.toLowerCase());
+    }).toList();
+    return f;
   }
 
-  Widget _buildEstrelas(double avaliacao) {
-    return Row(
-      children: List.generate(5, (index) => Icon(
-        index < avaliacao.round()
-          ? Icons.star
-          : Icons.star_border,
-        color: Colors.amber,
-        size: 16,
-      )),
-    );
+  Future<void> _abrirRota(double lat, double lng) async {
+    final google = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+    final waze = Uri.parse('https://waze.com/ul?ll=$lat,$lng&navigate=yes');
+    if (await canLaunchUrl(google)) {
+      await launchUrl(google, mode: LaunchMode.externalApplication);
+    } else if (await canLaunchUrl(waze)) {
+      await launchUrl(waze, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (loading || userLocation == null) {
+    if (_loading || _userLocation == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    final unidadesFiltradas = unidades.where((u) =>
-      u.nome.toLowerCase().contains(searchQuery) ||
-      u.endereco.toLowerCase().contains(searchQuery)
-    ).toList();
+    final all = _filtered;
+    final totalPages = (all.length / _perPage).ceil();
+    final start = (_currentPage - 1) * _perPage;
+    final end = (start + _perPage).clamp(0, all.length);
+    final pageItems = all.sublist(start, end);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
+            // header
             Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2)),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   SvgPicture.asset('assets/images/logo.svg', height: 40),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none, size: 28, color: Colors.red),
-                    onPressed: () {},
-                  ),
+                  IconButton(icon: const Icon(Icons.notifications_none, size: 28, color: Colors.red), onPressed: () {}),
                 ],
               ),
             ),
+            // title
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: 16),
-                  Text('Unidades', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF204181))),
-                  SizedBox(height: 4),
-                  Text('Encontre todas as unidades por cidade ou bairro. Consulte endereço, contato e horário de cada uma.', style: TextStyle(fontSize: 14)),
-                ],
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Unidades', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF204181))),
               ),
             ),
-            const SizedBox(height: 12),
+            // search
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
-                      onChanged: _filtrar,
+                      onChanged: _onSearch,
                       decoration: InputDecoration(
                         hintText: 'Buscar por cidade ou bairro',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF204181)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF204181)),
-                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Color(0xFF204181))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Color(0xFF204181))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    height: 48,
-                    width: 48,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF204181),
-                      borderRadius: BorderRadius.circular(12),
+                  GestureDetector(
+                    onTap: () {},
+                    child: Container(
+                      height: 48, width: 48,
+                      decoration: BoxDecoration(color: Color(0xFF204181), borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.search, color: Colors.white),
                     ),
-                    child: const Icon(Icons.search, color: Colors.white),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            // map
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
-                  height: 200,
-                  width: double.infinity,
+                  height: 200, width: double.infinity,
                   child: GoogleMap(
-                    onMapCreated: (controller) => mapController = controller,
-                    initialCameraPosition: CameraPosition(
-                      target: userLocation!,
-                      zoom: 13,
-                    ),
+                    onMapCreated: (c) => _mapController = c,
+                    initialCameraPosition: CameraPosition(target: _userLocation!, zoom: 13),
                     myLocationEnabled: true,
-                    markers: markers,
+                    markers: _markers,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            // list
             Expanded(
               child: ListView.builder(
-                itemCount: unidadesFiltradas.length,
-                itemBuilder: (context, index) {
-                  final u = unidadesFiltradas[index];
-                  return GestureDetector(
-                    onTap: () => _focarMapa(u),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F7F7),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.06),
-                            blurRadius: 5,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(u.nome, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 4),
-                                _buildEstrelas(u.avaliacao),
-                                const SizedBox(height: 4),
-                                Text(u.endereco, style: const TextStyle(fontSize: 12)),
-                                const SizedBox(height: 4),
-                                Text('${u.distanciaKm.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                const SizedBox(height: 8),
-                                SizedBox(
-                                  width: 200,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => _abrirRota(u.latitude, u.longitude),
-                                    icon: const Icon(Icons.send, size: 16),
-                                    label: const Text("Ver rota"),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF204181),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      textStyle: const TextStyle(fontSize: 13),
+                padding: const EdgeInsets.all(0),
+                itemCount: pageItems.length,
+                itemBuilder: (ctx, i) {
+                  final u = pageItems[i];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: GestureDetector(
+                      onTap: () => _mapController?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(u.latitude, u.longitude), 16)),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Color(0xFFF7F7F7), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)]),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(u.nome, style: TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 4),
+                                  Row(children: List.generate(5, (idx) => Icon(idx < u.avaliacao.round() ? Icons.star : Icons.star_border, size: 16, color: Colors.amber))),
+                                  const SizedBox(height: 4),
+                                  Text(u.endereco, style: TextStyle(fontSize: 12)),
+                                  const SizedBox(height: 4),
+                                  Text('${u.distanciaKm.toStringAsFixed(1)} km', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: 120,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _abrirRota(u.latitude, u.longitude),
+                                      icon: const Icon(Icons.navigation, size: 16),
+                                      label: const Text('Ver rota'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Color(0xFF204181),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        textStyle: const TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              u.imagemUrl,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported),
+                            const SizedBox(width: 8),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(u.imagemUrl, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported)),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );
                 },
               ),
             ),
+            // pagination controls
+            if (totalPages > 1) Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildPageBtn(Icons.first_page, () => setState(() => _currentPage = 1)),
+                  _buildPageBtn(Icons.chevron_left, () { if (_currentPage > 1) setState(() => _currentPage--); }),
+                  for (int p = 1; p <= totalPages; p++) Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _currentPage = p),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: p == _currentPage ? Color(0xFF204181) : Color(0xFFF2F3F5),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text('$p', style: TextStyle(color: p == _currentPage ? Colors.white : Colors.black, fontSize: 12)),
+                      ),
+                    ),
+                  ),
+                  _buildPageBtn(Icons.chevron_right, () { if (_currentPage < totalPages) setState(() => _currentPage++); }),
+                  _buildPageBtn(Icons.last_page, () => setState(() => _currentPage = totalPages)),
+                ],
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPageBtn(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: const Color(0xFFF2F3F5), borderRadius: BorderRadius.circular(20)),
+        child: Icon(icon, size: 16),
       ),
     );
   }

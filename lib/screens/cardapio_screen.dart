@@ -28,7 +28,7 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
 
   Future<void> fetchCardapio() async {
     try {
-      final response = await http.get(Uri.parse('http://192.168.15.10:1337/api/cardapio-do-dias'));
+      final response = await http.get(Uri.parse('http://192.168.15.15:1337/api/cardapio-do-dias'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List items = data['data'];

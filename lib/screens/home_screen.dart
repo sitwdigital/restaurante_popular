@@ -31,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<NewsItem> noticias = [];
   bool isLoading = true;
 
-  String status = 'Fechado';
   String dias = '';
   String cafe = '';
   String almoco = '';
@@ -44,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String valorAlmoco = '';
   String valorJantar = '';
 
-  static const _baseUrl = 'http://192.168.15.10:1337';
+  final String _wpBaseUrl = 'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/home';
 
   @override
   void initState() {
@@ -53,116 +52,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> fetchAllData() async {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
-    await Future.wait([
-      fetchFuncionamento(),
-      fetchDestaques(),
-      fetchNoticias(),
-    ]);
-
-    setState(() {
-      isLoading = false;
-    });
-  }
-
-  Future<void> fetchFuncionamento() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/api/home-screens'));
+      final response = await http.get(Uri.parse(_wpBaseUrl));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final homeData = data['data'][0];
+        if (data is List && data.isNotEmpty) {
+          final acf = data[0]['acf'];
 
-        final aberto = homeData['aberto'] ?? false;
+          destaqueItems = [
+            if (acf['destaque1'] != null) DestaqueItem(acf['destaque1']['url'], acf['destaque1']['link'] ?? ''),
+            if (acf['destaque2'] != null) DestaqueItem(acf['destaque2']['url'], acf['destaque2']['link'] ?? ''),
+            if (acf['destaque3'] != null) DestaqueItem(acf['destaque3']['url'], acf['destaque3']['link'] ?? ''),
+          ];
 
-        setState(() {
-          status = aberto ? 'Aberto' : 'Fechado';
-          dias = homeData['dias_funcionamento'] ?? '';
-          cafe = homeData['cafe_da_manha'] ?? '';
-          almoco = homeData['almoco'] ?? '';
-          jantar = homeData['jantar'] ?? '';
-          horarioCafe = homeData['horario_cafe'] ?? '';
-          horarioAlmoco = homeData['horario_almoco'] ?? '';
-          horarioJantar = homeData['horario_jantar'] ?? '';
-          diasFechado = homeData['dias_fechado'] ?? '';
-          valorCafe = homeData['valor_cafe'] ?? '';
-          valorAlmoco = homeData['valor_almoco'] ?? '';
-          valorJantar = homeData['valor_jantar'] ?? '';
-        });
-      }
-    } catch (e) {
-      print('Erro ao carregar funcionamento: $e');
-    }
-  }
+          valorCafe = acf['cafe_da_manha'] ?? '';
+          valorAlmoco = acf['almoco'] ?? '';
+          valorJantar = acf['jantar'] ?? '';
+          dias = acf['dias_funcionamento'] ?? '';
+          diasFechado = acf['dias_fechado'] ?? '';
+          horarioCafe = acf['horario_cafe'] ?? '';
+          horarioAlmoco = acf['horario_almoco'] ?? '';
+          horarioJantar = acf['horario_jantar'] ?? '';
 
-  Future<void> fetchDestaques() async {
-    try {
-      final response = await http.get(Uri.parse('$_baseUrl/api/homes?populate=imagem'));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final list = List<Map<String, dynamic>>.from(data['data']);
-
-        List<DestaqueItem> items = [];
-
-        for (var item in list) {
-          String imageUrl = '';
-          final link = item['link'] ?? '';
-
-          final imgField = item['imagem'];
-          if (imgField is Map) {
-            final url = imgField['url'] as String?;
-            if (url != null && url.isNotEmpty) {
-              imageUrl = '$_baseUrl$url';
-            }
-          }
-
-          if (imageUrl.isNotEmpty && link.isNotEmpty) {
-            items.add(DestaqueItem(imageUrl, link));
-          }
+          noticias = (acf['noticias'] as List?)?.take(3).map((n) {
+            return NewsItem(
+              n['post_title'] ?? 'Sem título',
+              'https://sitw.com.br/restaurante_popular/wp-content/uploads/2025/07/destaque1.png', // imagem genérica
+              n['post_date']?.substring(0, 10) ?? '',
+            );
+          }).toList() ?? [];
         }
-
-        setState(() {
-          destaqueItems = items;
-        });
       }
     } catch (e) {
-      print('Erro ao carregar destaques: $e');
+      print('Erro ao carregar dados do WordPress: $e');
     }
-  }
 
-  Future<void> fetchNoticias() async {
-    try {
-      final response = await http.get(Uri.parse('$_baseUrl/api/noticias?populate=imagem'));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final noticiasData = List<Map<String, dynamic>>.from(data['data']);
-
-        List<NewsItem> newsList = [];
-        for (var n in noticiasData.take(3)) {
-          final title = n['titulo'] ?? 'Sem título';
-          final date = n['data'] ?? '';
-          String imageUrl = '';
-
-          final imgField = n['imagem'];
-          if (imgField is Map) {
-            final url = imgField['url'] as String?;
-            if (url != null && url.isNotEmpty) {
-              imageUrl = '$_baseUrl$url';
-            }
-          }
-
-          newsList.add(NewsItem(title, imageUrl, date));
-        }
-
-        setState(() {
-          noticias = newsList;
-        });
-      }
-    } catch (e) {
-      print('Erro ao carregar notícias: $e');
-    }
+    setState(() => isLoading = false);
   }
 
   @override
@@ -179,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ✅ BARRA SUPERIOR COM SOMBRA
+                    // Barra superior
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
