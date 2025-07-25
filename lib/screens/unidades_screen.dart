@@ -27,9 +27,9 @@ class Unidade {
 
   void calcularDistancia(LatLng userLoc) {
     distanciaKm = Geolocator.distanceBetween(
-          userLoc.latitude, userLoc.longitude,
-          latitude, longitude,
-        ) / 1000;
+      userLoc.latitude, userLoc.longitude,
+      latitude, longitude,
+    ) / 1000;
   }
 }
 
@@ -49,7 +49,6 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   bool _loading = true;
   String _search = '';
 
-  // pagination
   int _currentPage = 1;
   final int _perPage = 15;
 
@@ -108,11 +107,10 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   }
 
   List<Unidade> get _filtered {
-    final f = _allUnidades.where((u) {
+    return _allUnidades.where((u) {
       return u.nome.toLowerCase().contains(_search.toLowerCase()) ||
              u.endereco.toLowerCase().contains(_search.toLowerCase());
     }).toList();
-    return f;
   }
 
   Future<void> _abrirRota(double lat, double lng) async {
@@ -125,12 +123,22 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     }
   }
 
+  List<int> _buildPageNumbers(int totalPages) {
+    if (totalPages <= 5) {
+      return List.generate(totalPages, (index) => index + 1);
+    } else if (_currentPage <= 3) {
+      return [1, 2, 3, 4, 5];
+    } else if (_currentPage >= totalPages - 2) {
+      return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    } else {
+      return [_currentPage - 2, _currentPage - 1, _currentPage, _currentPage + 1, _currentPage + 2];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading || _userLocation == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final all = _filtered;
@@ -144,7 +152,6 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -159,7 +166,6 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                 ],
               ),
             ),
-            // title
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Align(
@@ -167,9 +173,18 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                 child: Text('Unidades', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF204181))),
               ),
             ),
-            // search
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Encontre todas as unidades por cidade ou bairro.\nConsulte endereço, contato e horário de cada uma.',
+                  style: TextStyle(fontSize: 13, color: Colors.black87),
+                ),
+              ),
+            ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
                   Expanded(
@@ -195,32 +210,31 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            // map
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  height: 200, width: double.infinity,
-                  child: GoogleMap(
-                    onMapCreated: (c) => _mapController = c,
-                    initialCameraPosition: CameraPosition(target: _userLocation!, zoom: 13),
-                    myLocationEnabled: true,
-                    markers: _markers,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // list
             Expanded(
-              child: ListView.builder(
+              child: ListView(
                 padding: const EdgeInsets.all(0),
-                itemCount: pageItems.length,
-                itemBuilder: (ctx, i) {
-                  final u = pageItems[i];
-                  return Padding(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        height: 200,
+                        child: AbsorbPointer(
+                          absorbing: false,
+                          child: GoogleMap(
+                            onMapCreated: (c) => _mapController = c,
+                            initialCameraPosition: CameraPosition(target: _userLocation!, zoom: 13),
+                            myLocationEnabled: true,
+                            markers: _markers,
+                            gestureRecognizers: {},
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...pageItems.map((u) => Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: GestureDetector(
                       onTap: () => _mapController?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(u.latitude, u.longitude), 16)),
@@ -268,34 +282,34 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-            // pagination controls
-            if (totalPages > 1) Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildPageBtn(Icons.first_page, () => setState(() => _currentPage = 1)),
-                  _buildPageBtn(Icons.chevron_left, () { if (_currentPage > 1) setState(() => _currentPage--); }),
-                  for (int p = 1; p <= totalPages; p++) Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _currentPage = p),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: p == _currentPage ? Color(0xFF204181) : Color(0xFFF2F3F5),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text('$p', style: TextStyle(color: p == _currentPage ? Colors.white : Colors.black, fontSize: 12)),
+                  )),
+                  if (totalPages > 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildPageBtn(Icons.first_page, () => setState(() => _currentPage = 1)),
+                          _buildPageBtn(Icons.chevron_left, () { if (_currentPage > 1) setState(() => _currentPage--); }),
+                          for (int p in _buildPageNumbers(totalPages)) Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _currentPage = p),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: p == _currentPage ? Color(0xFF204181) : Color(0xFFF2F3F5),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text('$p', style: TextStyle(color: p == _currentPage ? Colors.white : Colors.black, fontSize: 12)),
+                              ),
+                            ),
+                          ),
+                          _buildPageBtn(Icons.chevron_right, () { if (_currentPage < totalPages) setState(() => _currentPage++); }),
+                          _buildPageBtn(Icons.last_page, () => setState(() => _currentPage = totalPages)),
+                        ],
                       ),
                     ),
-                  ),
-                  _buildPageBtn(Icons.chevron_right, () { if (_currentPage < totalPages) setState(() => _currentPage++); }),
-                  _buildPageBtn(Icons.last_page, () => setState(() => _currentPage = totalPages)),
                 ],
               ),
             ),
