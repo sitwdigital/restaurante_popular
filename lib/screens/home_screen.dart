@@ -97,14 +97,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
           destaqueItems = [
             if (acf['destaque1'] != null)
-              DestaqueItem(
-                  acf['destaque1']['url'], acf['destaque1']['link'] ?? ''),
+              DestaqueItem(acf['destaque1']['url'], acf['link_destaque1'] ?? ''),
             if (acf['destaque2'] != null)
-              DestaqueItem(
-                  acf['destaque2']['url'], acf['destaque2']['link'] ?? ''),
+              DestaqueItem(acf['destaque2']['url'], acf['link_destaque2'] ?? ''),
             if (acf['destaque3'] != null)
-              DestaqueItem(
-                  acf['destaque3']['url'], acf['destaque3']['link'] ?? ''),
+              DestaqueItem(acf['destaque3']['url'], acf['link_destaque3'] ?? ''),
           ];
 
           valorCafe = acf['cafe_da_manha'] ?? '';
@@ -177,6 +174,27 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _handleDestaqueClick(String link) async {
+    if (link.isEmpty) return;
+
+    final Uri url = Uri.parse(link);
+
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        if (!await launchUrl(url, mode: LaunchMode.platformDefault)) {
+          throw 'Erro ao tentar abrir o link: $link';
+        }
+      }
+    } catch (e) {
+      print('Erro ao abrir o link: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível abrir o link')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -233,25 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 12),
                                     child: GestureDetector(
-                                      onTap: () async {
-                                        if (i == 0) {
-                                          Navigator.pushNamed(
-                                              context, '/sobre');
-                                        } else if (i == 1) {
-                                          final Uri url = Uri.parse(item.link);
-                                          if (await canLaunchUrl(url)) {
-                                            await launchUrl(url,
-                                                mode: LaunchMode
-                                                    .externalApplication);
-                                          } else {
-                                            throw Exception(
-                                                'Não foi possivel abrir o link');
-                                          }
-                                        } else if (i == 2) {
-                                          Navigator.pushNamed(
-                                              context, '/unidades');
-                                        }
-                                      },
+                                      onTap: () => _handleDestaqueClick(item.link),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(12),
                                         child: SizedBox(
@@ -274,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 count: destaqueItems.length,
                                 effect: WormEffect(
                                   dotColor: Colors.grey.shade300,
-                                  activeDotColor: Color(0xFF204181),
+                                  activeDotColor: const Color(0xFF204181),
                                   dotHeight: 8,
                                   dotWidth: 8,
                                 ),
@@ -323,10 +323,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: GestureDetector(
                   onTap: () async {
                     final Uri url = Uri.parse(item.link);
-                    if (!await launchUrl(url,
-                        mode: LaunchMode.externalApplication)) {
-                      throw Exception(
-                          'Não foi possível abrir o link da notícia');
+                    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                      throw Exception('Não foi possível abrir o link da notícia');
                     }
                   },
                   child: Container(
@@ -456,12 +454,10 @@ class _HomeScreenState extends State<HomeScreen> {
             style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 12),
         _buildHorarioItem(Icons.check, Colors.green, dias),
-        _buildHorarioItem(
-            Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
+        _buildHorarioItem(Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
         _buildHorarioItem(Icons.check, Colors.green, 'Almoço: $horarioAlmoco'),
         _buildHorarioItem(Icons.check, Colors.green, 'Jantar: $horarioJantar'),
-        _buildHorarioItem(
-            Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
+        _buildHorarioItem(Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
       ],
     );
   }

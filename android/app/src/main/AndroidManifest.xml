@@ -1,11 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.restaurante_popular">
 
-    <!-- Permissões -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Permitir acesso a apps de navegador -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 
     <application
         android:label="restaurante_popular"
@@ -14,7 +27,7 @@
         
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDb4OiwLolIKASP4noUPVkabLuvyvK_UI8" />
+            android:value="SUA_API_KEY_AQUI" />
 
         <meta-data
             android:name="flutterEmbedding"
@@ -39,10 +52,4 @@
         </activity>
     </application>
 
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT" />
-            <data android:mimeType="text/plain" />
-        </intent>
-    </queries>
 </manifest>

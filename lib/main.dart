@@ -8,7 +8,6 @@ import 'screens/main_navigation.dart';
 import 'screens/unidades_screen.dart';
 import 'screens/sobre_screen.dart';
 
-
 void main() {
   runApp(const RestaurantePopularApp());
 }
@@ -31,6 +30,14 @@ class RestaurantePopularApp extends StatelessWidget {
         ),
       ),
       home: const SplashScreen(),
+      routes: {
+        '/home': (context) => const HomeScreen(),
+        '/cardapio': (context) => const CardapioScreen(),
+        '/noticias': (context) => const NewsScreen(),
+        '/navegacao': (context) => const MainNavigation(),
+        '/sobre': (context) => const SobreScreen(),
+        '/unidades': (context) => const UnidadesScreen(),
+      },
     );
   }
 }

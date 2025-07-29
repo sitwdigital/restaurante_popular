@@ -6,6 +6,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
+
 
 class Unidade {
   final String nome;
@@ -226,7 +229,9 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                             initialCameraPosition: CameraPosition(target: _userLocation!, zoom: 13),
                             myLocationEnabled: true,
                             markers: _markers,
-                            gestureRecognizers: {},
+                            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                              Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                            },
                           ),
                         ),
                       ),
