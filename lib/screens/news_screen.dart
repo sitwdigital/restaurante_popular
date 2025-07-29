@@ -153,10 +153,6 @@ class _NewsScreenState extends State<NewsScreen> {
                       children: [
                         SvgPicture.asset('assets/images/logo.svg', height: 40),
                         const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.notifications_none, size: 28, color: Colors.red),
-                          onPressed: () {},
-                        ),
                       ],
                     ),
                   ),

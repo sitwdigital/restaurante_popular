@@ -54,7 +54,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String valorAlmoco = '';
   String valorJantar = '';
 
-  final String _wpBaseUrl = 'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/home';
+  final String _wpBaseUrl =
+      'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/home';
 
   @override
   void initState() {
@@ -95,9 +96,15 @@ class _HomeScreenState extends State<HomeScreen> {
           final acf = data[0]['acf'];
 
           destaqueItems = [
-            if (acf['destaque1'] != null) DestaqueItem(acf['destaque1']['url'], acf['destaque1']['link'] ?? ''),
-            if (acf['destaque2'] != null) DestaqueItem(acf['destaque2']['url'], acf['destaque2']['link'] ?? ''),
-            if (acf['destaque3'] != null) DestaqueItem(acf['destaque3']['url'], acf['destaque3']['link'] ?? ''),
+            if (acf['destaque1'] != null)
+              DestaqueItem(
+                  acf['destaque1']['url'], acf['destaque1']['link'] ?? ''),
+            if (acf['destaque2'] != null)
+              DestaqueItem(
+                  acf['destaque2']['url'], acf['destaque2']['link'] ?? ''),
+            if (acf['destaque3'] != null)
+              DestaqueItem(
+                  acf['destaque3']['url'], acf['destaque3']['link'] ?? ''),
           ];
 
           valorCafe = acf['cafe_da_manha'] ?? '';
@@ -122,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> fetchNoticiasOrdenadas() async {
     try {
       final response = await http.get(Uri.parse(
-        'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/noticia?per_page=100&_fields=acf,date'));
+          'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/noticia?per_page=100&_fields=acf,date'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         final List<NewsItem> loaded = [];
@@ -169,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
       print('Erro ao buscar notícias ordenadas: $e');
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -194,10 +202,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   SvgPicture.asset('assets/images/logo.svg', height: 40),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none, size: 28, color: Colors.red),
-                    onPressed: () {},
-                  ),
                 ],
               ),
             ),
@@ -210,9 +214,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Destaques', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+                            Text('Destaques',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(color: const Color(0xFF204181))),
                             const SizedBox(height: 4),
-                            Text('Veja o prato do dia, avisos e novidades.', style: Theme.of(context).textTheme.bodyMedium),
+                            Text('Veja o prato do dia, avisos e novidades.',
+                                style: Theme.of(context).textTheme.bodyMedium),
                             const SizedBox(height: 12),
                             SizedBox(
                               height: 300,
@@ -225,9 +234,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                     padding: const EdgeInsets.only(right: 12),
                                     child: GestureDetector(
                                       onTap: () async {
-                                        final Uri url = Uri.parse(item.link);
-                                        if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                                          throw Exception('Não foi possível abrir o link');
+                                        if (i == 0) {
+                                          Navigator.pushNamed(
+                                              context, '/sobre');
+                                        } else if (i == 1) {
+                                          final Uri url = Uri.parse(item.link);
+                                          if (await canLaunchUrl(url)) {
+                                            await launchUrl(url,
+                                                mode: LaunchMode
+                                                    .externalApplication);
+                                          } else {
+                                            throw Exception(
+                                                'Não foi possivel abrir o link');
+                                          }
+                                        } else if (i == 2) {
+                                          Navigator.pushNamed(
+                                              context, '/unidades');
                                         }
                                       },
                                       child: ClipRRect(
@@ -279,9 +301,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Notícias', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+        Text('Notícias',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(color: const Color(0xFF204181))),
         const SizedBox(height: 4),
-        Text('Acompanhe inaugurações, manutenções e outras notícias dos restaurantes populares.', style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+            'Acompanhe inaugurações, manutenções e outras notícias dos restaurantes populares.',
+            style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 12),
         SizedBox(
           height: 250,
@@ -295,8 +323,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: GestureDetector(
                   onTap: () async {
                     final Uri url = Uri.parse(item.link);
-                    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                      throw Exception('Não foi possível abrir o link da notícia');
+                    if (!await launchUrl(url,
+                        mode: LaunchMode.externalApplication)) {
+                      throw Exception(
+                          'Não foi possível abrir o link da notícia');
                     }
                   },
                   child: Container(
@@ -360,9 +390,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Valores', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+        Text('Valores',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(color: const Color(0xFF204181))),
         const SizedBox(height: 4),
-        Text('Veja os valores acessíveis das refeições.', style: Theme.of(context).textTheme.bodyMedium),
+        Text('Veja os valores acessíveis das refeições.',
+            style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 12),
         _buildValorItem('Café da Manhã', valorCafe, 'cafe.png'),
         _buildValorItem('Almoço', valorAlmoco, 'almoco.png'),
@@ -411,15 +446,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Funcionamento', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+        Text('Funcionamento',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(color: const Color(0xFF204181))),
         const SizedBox(height: 4),
-        Text('Confira os dias e horários de funcionamento.', style: Theme.of(context).textTheme.bodyMedium),
+        Text('Confira os dias e horários de funcionamento.',
+            style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 12),
         _buildHorarioItem(Icons.check, Colors.green, dias),
-        _buildHorarioItem(Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
+        _buildHorarioItem(
+            Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
         _buildHorarioItem(Icons.check, Colors.green, 'Almoço: $horarioAlmoco'),
         _buildHorarioItem(Icons.check, Colors.green, 'Jantar: $horarioJantar'),
-        _buildHorarioItem(Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
+        _buildHorarioItem(
+            Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
       ],
     );
   }
@@ -440,7 +482,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E1E1E), fontSize: 14),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E1E1E),
+                  fontSize: 14),
             ),
           ),
         ],

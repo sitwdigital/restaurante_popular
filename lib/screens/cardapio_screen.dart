@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 class CardapioScreen extends StatefulWidget {
   const CardapioScreen({super.key});
@@ -18,39 +21,85 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
   bool expandedJantar = false;
 
   Map<String, dynamic> cardapioData = {};
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  bool notificacoesAtivadas = false;
 
   @override
   void initState() {
     super.initState();
+    _initNotification();
     diaSelecionado = diasemana.first;
     fetchCardapio();
   }
 
+  Future<void> _initNotification() async {
+    tz.initializeTimeZones();
+    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _ativarNotificacoes() async {
+    for (int i = 1; i <= 5; i++) {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        i,
+        'Confira o cardápio de hoje!',
+        'Veja o que será servido no Restaurante Popular MA.',
+        _nextInstanceOfTime(i),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'cardapio_channel_id',
+            'Cardápio Notificações',
+            channelDescription: 'Notificações sobre atualizações do cardápio',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+        androidAllowWhileIdle: true,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      );
+    }
+    setState(() => notificacoesAtivadas = true);
+  }
+
+  Future<void> _desativarNotificacoes() async {
+    await flutterLocalNotificationsPlugin.cancelAll();
+    setState(() => notificacoesAtivadas = false);
+  }
+
+  tz.TZDateTime _nextInstanceOfTime(int weekday) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, 7);
+    while (scheduledDate.weekday != weekday) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 7));
+    }
+    return scheduledDate;
+  }
+
   Future<void> fetchCardapio() async {
     try {
-      final response = await http.get(Uri.parse('http://192.168.15.8:1337/api/cardapio-do-dias'));
+      final response = await http.get(Uri.parse('https://sitw.com.br/restaurante_popular/wp-json/wp/v2/cardapio'));
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List items = data['data'];
+        final List items = json.decode(response.body);
         Map<String, dynamic> parsed = {};
 
         for (var item in items) {
-          String dia = item['diasemana'];
+          final acf = item['acf'] ?? {};
+          final dias = acf['diasemana'] ?? [];
 
-          String extractText(List<dynamic> blocks) {
-            return blocks.map((block) {
-              if (block['children'] != null && block['children'].isNotEmpty) {
-                return block['children'][0]['text'];
-              }
-              return '';
-            }).join('\n');
+          if (dias.isNotEmpty) {
+            final dia = dias[0];
+            parsed[dia] = {
+              'cafe': _splitByCategoria(_extractHtml(acf['cafe'] ?? '')),
+              'almoco': _splitByCategoria(_extractHtml(acf['almoco'] ?? '')),
+              'jantar': _splitByCategoria(_extractHtml(acf['jantar'] ?? '')),
+            };
           }
-
-          parsed[dia] = {
-            'cafe': {'Prato': extractText(item['cafe'] ?? [])},
-            'almoco': {'Prato': extractText(item['almoco'] ?? [])},
-            'jantar': {'Prato': extractText(item['jantar'] ?? [])},
-          };
         }
 
         setState(() => cardapioData = parsed);
@@ -60,6 +109,26 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
     } catch (e) {
       print('Erro: $e');
     }
+  }
+
+  String _extractHtml(String html) {
+    return html.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), '').trim();
+  }
+
+  Map<String, String> _splitByCategoria(String raw) {
+    final Map<String, String> categorias = {};
+    final regex = RegExp(r'(Prato principal|Acompanhamento|Cereal|Salada|Sobremesa):', caseSensitive: false);
+    final matches = regex.allMatches(raw);
+
+    for (int i = 0; i < matches.length; i++) {
+      final start = matches.elementAt(i).end;
+      final end = i + 1 < matches.length ? matches.elementAt(i + 1).start : raw.length;
+      final key = matches.elementAt(i).group(0)!.replaceAll(':', '').trim();
+      final value = raw.substring(start, end).trim();
+      categorias[key] = value;
+    }
+
+    return categorias;
   }
 
   Map<String, String> getDetalhes(String refeicao) {
@@ -96,8 +165,18 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                   SvgPicture.asset('assets/images/logo.svg', height: 40),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.notifications_none, size: 28, color: Colors.red),
-                    onPressed: () {},
+                    icon: Icon(
+                      notificacoesAtivadas ? Icons.notifications : Icons.notifications_none,
+                      size: 28,
+                      color: Colors.red,
+                    ),
+                    onPressed: () {
+                      if (notificacoesAtivadas) {
+                        _desativarNotificacoes();
+                      } else {
+                        _ativarNotificacoes();
+                      }
+                    },
                   ),
                 ],
               ),
