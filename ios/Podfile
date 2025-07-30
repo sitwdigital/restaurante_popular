@@ -3,11 +3,7 @@ platform :ios, '14.0'
 use_frameworks!
 use_modular_headers!
 
-target 'Runner' do
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-end
-
-# Função que carrega os plugins do Flutter de forma segura
+# ⚠️ Defina as funções primeiro
 def flutter_install_all_ios_pods(app_dir)
   plugin_deps_path = File.join(app_dir, '.flutter-plugins-dependencies')
 
@@ -18,7 +14,12 @@ def flutter_install_all_ios_pods(app_dir)
       pod plugin["name"], :path => plugin["path"]
     end
   else
-    # fallback seguro se o arquivo ainda não foi gerado
+    # fallback mínimo
     pod 'Flutter', :path => '../Flutter'
   end
+end
+
+# ✅ Só depois chame a função
+target 'Runner' do
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
