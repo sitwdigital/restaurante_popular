@@ -3,11 +3,6 @@ platform :ios, '14.0'
 use_frameworks!
 use_modular_headers!
 
-target 'Runner' do
-  flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
-end
-
-# Essas funções devem vir DEPOIS do target
 def flutter_install_all_ios_pods(app_dir)
   plugin_deps_path = File.join(app_dir, '.flutter-plugins-dependencies')
 
@@ -18,4 +13,8 @@ def flutter_install_all_ios_pods(app_dir)
       pod plugin["name"], :path => plugin["path"]
     end
   end
+end
+
+target 'Runner' do
+  flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
 end
