@@ -1,20 +1,13 @@
 platform :ios, '14.0'
 
-use_frameworks!
-use_modular_headers!
-
-def flutter_install_all_ios_pods(app_dir)
-  plugin_deps_path = File.join(app_dir, '.flutter-plugins-dependencies')
-
-  if File.exist?(plugin_deps_path)
-    plugin_pods = File.read(plugin_deps_path)
-    plugins = JSON.parse(plugin_pods)["plugins"]["ios"]
-    plugins.each do |plugin|
-      pod plugin["name"], :path => plugin["path"]
-    end
-  end
-end
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), Dir.pwd)
 
 target 'Runner' do
   flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+  end
 end
