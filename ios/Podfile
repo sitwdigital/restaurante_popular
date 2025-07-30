@@ -3,11 +3,7 @@ platform :ios, '14.0'
 use_frameworks!
 use_modular_headers!
 
-target 'Runner' do
-  flutter_install_ios_engine_pod
-  flutter_install_flutter_plugins File.dirname(File.realpath(__FILE__))
-end
-
+# Primeiro: define as funções
 def flutter_install_ios_engine_pod
   engine_dir = File.join(__dir__, '..', 'Flutter')
   pod 'Flutter', :path => File.join(engine_dir, 'engine')
@@ -19,4 +15,10 @@ def flutter_install_flutter_plugins(app_dir)
   plugins.each do |plugin|
     pod plugin["name"], :path => plugin["path"]
   end
+end
+
+# Depois: usa as funções
+target 'Runner' do
+  flutter_install_ios_engine_pod
+  flutter_install_flutter_plugins File.dirname(File.realpath(__FILE__))
 end
