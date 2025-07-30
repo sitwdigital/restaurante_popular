@@ -1,0 +1,23 @@
+platform :ios, '12.0'
+
+# Descomente se quiser usar modular headers (pode ajudar com conflitos de dependências)
+# use_modular_headers!
+
+# Atribui o caminho do projeto Flutter
+ENV['FLUTTER_ROOT'] ||= File.expand_path('~/flutter')
+ENV['FLUTTER_APPLICATION_PATH'] ||= File.expand_path('..')
+ENV['FLUTTER_TARGET'] ||= 'lib/main.dart'
+
+# Carrega o script gerado pelo Flutter
+load File.join(ENV['FLUTTER_ROOT'], 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
