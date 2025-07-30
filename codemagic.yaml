@@ -1,0 +1,27 @@
+workflows:
+  build_flutter_app:
+    name: Build Flutter App for iOS and Android
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.suaempresa.restaurantepopular"
+    scripts:
+      - name: Verificando Flutter
+        script: |
+          flutter --version
+          flutter pub get
+      - name: Build Android
+        script: flutter build apk
+      - name: Build iOS
+        script: |
+          flutter build ios --release --no-codesign
+    artifacts:
+      - build/app/outputs/**/*.apk
+      - build/ios/iphoneos/*.app
+    publishing:
+      email:
+        recipients:
+          - seuemail@dominio.com
