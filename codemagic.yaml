@@ -25,4 +25,3 @@ workflows:
       email:
         recipients:
           - seuemail@dominio.com
-`
