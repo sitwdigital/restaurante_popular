@@ -19,6 +19,7 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
   bool expandedCafe = false;
   bool expandedAlmoco = false;
   bool expandedJantar = false;
+  final ScrollController _scrollController = ScrollController();
 
   Map<String, dynamic> cardapioData = {};
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -28,15 +29,33 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
   void initState() {
     super.initState();
     _initNotification();
-    diaSelecionado = diasemana.first;
+
+    final int hoje = DateTime.now().weekday;
+    final int indexHoje = hoje >= 1 && hoje <= 5 ? hoje - 1 : 0;
+    diaSelecionado = diasemana[indexHoje];
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) _scrollToDay(indexHoje);
+    });
+
     fetchCardapio();
+  }
+
+  void _scrollToDay(int index) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double targetPosition = index * 120.0 - (screenWidth / 2) + 60;
+
+    _scrollController.animateTo(
+      targetPosition < 0 ? 0 : targetPosition,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
   }
 
   Future<void> _initNotification() async {
     tz.initializeTimeZones();
     const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
     const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
-
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
@@ -200,33 +219,44 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF204181),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: DropdownButton<String>(
-                              value: diaSelecionado,
-                              dropdownColor: const Color(0xFF204181),
-                              isExpanded: true,
-                              iconEnabledColor: Colors.white,
-                              style: const TextStyle(color: Colors.white),
-                              underline: const SizedBox(),
-                              items: diasemana.map((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value, style: const TextStyle(color: Colors.white)),
+                          SingleChildScrollView(
+                            controller: _scrollController,
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: diasemana.map((dia) {
+                                final bool isSelected = dia == diaSelecionado;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        diaSelecionado = dia;
+                                        expandedCafe = false;
+                                        expandedAlmoco = false;
+                                        expandedJantar = false;
+                                      });
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? const Color(0xFF204181) : Colors.grey.shade200,
+                                        borderRadius: BorderRadius.circular(24),
+                                        border: Border.all(
+                                          color: isSelected ? const Color(0xFF204181) : Colors.grey.shade300,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        dia,
+                                        style: TextStyle(
+                                          color: isSelected ? Colors.white : Colors.black87,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 );
                               }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  diaSelecionado = value;
-                                  expandedCafe = false;
-                                  expandedAlmoco = false;
-                                  expandedJantar = false;
-                                });
-                              },
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -300,45 +330,48 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             alignment: Alignment.topCenter,
-            child: expanded && detalhes.isNotEmpty
-                ? Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    margin: const EdgeInsets.only(top: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: detalhes.entries.map((entry) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: RichText(
-                            text: TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: '${entry.key}: ',
-                                  style: const TextStyle(
-                                    color: Color(0xFFE30613),
-                                    fontWeight: FontWeight.bold,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: expanded ? 1.0 : 0.0,
+              child: expanded && detalhes.isNotEmpty
+                  ? Container(
+                      key: ValueKey(label),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: detalhes.entries.map((entry) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '${entry.key}: ',
+                                    style: const TextStyle(
+                                      color: Color(0xFFE30613),
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                                TextSpan(
-                                  text: entry.value,
-                                  style: const TextStyle(
-                                    color: Color(0xFF1E1E1E),
+                                  TextSpan(
+                                    text: entry.value,
+                                    style: const TextStyle(color: Color(0xFF1E1E1E)),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  )
-                : const SizedBox(),
+                          );
+                        }).toList(),
+                      ),
+                    )
+                  : const SizedBox(),
+            ),
           ),
         ],
       ),

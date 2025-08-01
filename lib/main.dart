@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'screens/home_screen.dart';
 import 'screens/cardapio_screen.dart';
 import 'screens/news_screen.dart';
