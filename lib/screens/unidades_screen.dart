@@ -148,7 +148,9 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     final totalPages = (all.length / _perPage).ceil();
     final start = (_currentPage - 1) * _perPage;
     final end = (_currentPage * _perPage).clamp(0, all.length);
-    final pageItems = (start < all.length) ? all.sublist(start.clamp(0, all.length), end.clamp(0, all.length)) : <Unidade>[];
+    final pageItems = (start < all.length && end <= all.length && start <= end)
+        ? all.sublist(start, end)
+        : <Unidade>[];
 
     return Scaffold(
       backgroundColor: Colors.white,

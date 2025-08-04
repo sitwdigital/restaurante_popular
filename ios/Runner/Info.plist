@@ -26,6 +26,13 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Este aplicativo precisa da sua localização para mostrar restaurantes próximos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Este aplicativo pode precisar da câmera em futuras funcionalidades.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Este aplicativo pode precisar do microfone em futuras funcionalidades.</string>
+
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>

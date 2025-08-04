@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Permitir acesso a apps de navegador -->
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -21,13 +20,13 @@
     </queries>
 
     <application
-        android:label="restaurante_popular"
+        android:label="Restaurante Popular"
         android:icon="@mipmap/ic_launcher"
         android:name="${applicationName}">
         
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="SUA_API_KEY_AQUI" />
+            android:value="AIzaSyDb4OiwLolIKASP4noUPVkabLuvyvK_UI8" />
 
         <meta-data
             android:name="flutterEmbedding"
