@@ -88,8 +88,8 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
         final lat = double.tryParse(acf['latitude'] ?? '') ?? 0.0;
         final lng = double.tryParse(acf['longitude'] ?? '') ?? 0.0;
         final u = Unidade(
-          nome: acf['nome'] ?? item['title']['rendered'] ?? '',
-          endereco: acf['endereco'] ?? '',
+          nome: '${acf['nome'] ?? item['title']['rendered'] ?? ''}',
+          endereco: '${acf['endereco'] ?? ''}',
           imagemUrl: acf['imagem'] is Map ? acf['imagem']['url'] ?? '' : '',
           latitude: lat,
           longitude: lng,
@@ -122,9 +122,11 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   }
 
   List<Unidade> get _filtered {
+    final filtro = _search.toLowerCase();
     return _allUnidades.where((u) {
-      return u.nome.toLowerCase().contains(_search.toLowerCase()) ||
-          u.endereco.toLowerCase().contains(_search.toLowerCase());
+      final nome = u.nome.toLowerCase();
+      final endereco = u.endereco.toLowerCase();
+      return nome.contains(filtro) || endereco.contains(filtro);
     }).toList();
   }
 
@@ -148,7 +150,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     final totalPages = (all.length / _perPage).ceil();
     final start = (_currentPage - 1) * _perPage;
     final end = (_currentPage * _perPage).clamp(0, all.length);
-    final pageItems = (start < all.length && end <= all.length && start <= end)
+    final pageItems = (start >= 0 && start < all.length && end >= start)
         ? all.sublist(start, end)
         : <Unidade>[];
 
@@ -176,23 +178,14 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Unidades',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF204181))),
-                ),
+                child: Text('Unidades',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF204181))),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Encontre todas as unidades por cidade ou bairro.\nConsulte endereço, contato e horário de cada uma.',
-                    style: TextStyle(fontSize: 13, color: Colors.black87),
-                  ),
+                child: Text(
+                  'Encontre todas as unidades por cidade ou bairro.\nConsulte endereço, contato e horário de cada uma.',
+                  style: TextStyle(fontSize: 13, color: Colors.black87),
                 ),
               ),
               Padding(
@@ -211,7 +204,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                           enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(color: Color(0xFF204181))),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
                       ),
                     ),
@@ -259,7 +252,11 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                   onTap: () => _mapController?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(u.latitude, u.longitude), 16)),
                   child: Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0xFFF7F7F7), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)]),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F7F7),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -370,8 +367,19 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   List<Widget> _buildCompactPagination(int totalPages) {
     List<Widget> items = [];
     int maxPagesToShow = 4;
-    int start = (_currentPage - (maxPagesToShow ~/ 2)).clamp(1, totalPages - maxPagesToShow + 1);
-    int end = (start + maxPagesToShow - 1).clamp(1, totalPages);
+
+    if (totalPages <= 0) return items;
+
+    int start = (_currentPage - (maxPagesToShow ~/ 2));
+    int end = start + maxPagesToShow - 1;
+
+    if (start < 1) {
+      start = 1;
+      end = (maxPagesToShow).clamp(1, totalPages);
+    } else if (end > totalPages) {
+      end = totalPages;
+      start = (end - maxPagesToShow + 1).clamp(1, totalPages);
+    }
 
     for (int i = start; i <= end; i++) {
       final isCurrent = i == _currentPage;

@@ -6,8 +6,25 @@ import 'screens/splash_screen.dart';
 import 'screens/main_navigation.dart';
 import 'screens/unidades_screen.dart';
 import 'screens/sobre_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'services/push_service.dart';
 
-void main() {
+// Handler de mensagens em segundo plano (push com app fechado ou em background)
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint("🔙 Notificação recebida em segundo plano: ${message.messageId}");
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Registrar handler para notificações em segundo plano
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  await Firebase.initializeApp();
+  await PushService.init(); // inicializa listener + local notifications
+
   runApp(const RestaurantePopularApp());
 }
 
