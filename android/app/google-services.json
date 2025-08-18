@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:211808996834:android:3dac2beb5d8e35e6437dbb",
+        "mobilesdk_app_id": "1:211808996834:android:ef4b37d340cda084437dbb",
         "android_client_info": {
-          "package_name": "com.example.restaurante_popular"
+          "package_name": "br.com.sitw.restaurante_popular"
         }
       },
       "oauth_client": [],

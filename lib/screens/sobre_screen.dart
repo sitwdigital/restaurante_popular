@@ -26,7 +26,7 @@ class SobreScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  SvgPicture.asset('assets/images/logo.svg', height: 40),
+                  SvgPicture.asset('assets/images/logo.svg', height: 40, colorFilter: null,),
                   const Spacer(),
                 ],
               ),
@@ -41,7 +41,7 @@ class SobreScreen extends StatelessWidget {
                   children: [
                     Text(
                       'Sobre o Programa',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596)),
                     ),
                     const SizedBox(height: 8),
                     Text(

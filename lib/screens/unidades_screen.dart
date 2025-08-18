@@ -1,4 +1,4 @@
-// IMPORTS
+// IMPORTS 
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -57,7 +57,11 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   String _search = '';
   int _currentPage = 1;
   final int _perPage = 15;
+
   final ScrollController _scrollController = ScrollController();
+
+  // >>> NOVO: key para descobrir a posição do mapa na tela
+  final GlobalKey _mapKey = GlobalKey();
 
   @override
   void initState() {
@@ -67,8 +71,37 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
   void _scrollToTop() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     });
+  }
+
+  // >>> NOVO: anima a rolagem até o mapa
+  Future<void> _scrollToMap() async {
+    if (!_scrollController.hasClients) return;
+    if (_mapKey.currentContext == null) return;
+
+    // Posição do mapa em coordenadas globais
+    final box = _mapKey.currentContext!.findRenderObject() as RenderBox;
+    final pos = box.localToGlobal(Offset.zero);
+
+    // Converte para offset dentro do scroll atual
+    final currentOffset = _scrollController.offset;
+    // Margem para não “colar” demais no topo
+    const topPadding = 12.0;
+
+    final target = currentOffset + pos.dy - topPadding;
+    final max = _scrollController.position.maxScrollExtent;
+    final safeTarget = target.clamp(0.0, max);
+
+    await _scrollController.animateTo(
+      safeTarget,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
   }
 
   Future<void> _loadData() async {
@@ -105,11 +138,15 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
     setState(() {
       _allUnidades = list;
-      _markers = list.map((u) => Marker(
-        markerId: MarkerId(u.nome),
-        position: LatLng(u.latitude, u.longitude),
-        infoWindow: InfoWindow(title: u.nome, snippet: u.endereco),
-      )).toSet();
+      _markers = list
+          .map(
+            (u) => Marker(
+              markerId: MarkerId(u.nome),
+              position: LatLng(u.latitude, u.longitude),
+              infoWindow: InfoWindow(title: u.nome, snippet: u.endereco),
+            ),
+          )
+          .toSet();
       _loading = false;
     });
   }
@@ -171,15 +208,25 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                 ),
                 child: Row(
                   children: [
-                    SvgPicture.asset('assets/images/logo.svg', height: 40),
+                    SvgPicture.asset(
+                      'assets/images/logo.svg',
+                      height: 40,
+                      colorFilter: null,
+                    ),
                     const Spacer(),
                   ],
                 ),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Unidades',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF204181))),
+                child: Text(
+                  'Unidades',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF046596),
+                  ),
+                ),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
@@ -199,11 +246,13 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                         decoration: InputDecoration(
                           hintText: 'Buscar por cidade ou bairro',
                           border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF204181))),
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF046596)),
+                          ),
                           enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF204181))),
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF046596)),
+                          ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
                       ),
@@ -215,19 +264,22 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                         height: 48,
                         width: 48,
                         decoration: BoxDecoration(
-                            color: const Color(0xFF204181),
-                            borderRadius: BorderRadius.circular(12)),
+                          color: const Color(0xFF046596),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: const Icon(Icons.search, color: Colors.white),
                       ),
                     ),
                   ],
                 ),
               ),
+              // >>> ADICIONADO key para encontrarmos a posição do mapa
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: SizedBox(
+                    key: _mapKey, // <<< AQUI
                     height: 200,
                     child: GoogleMap(
                       onMapCreated: (c) => _mapController = c,
@@ -246,59 +298,94 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...pageItems.map((u) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: GestureDetector(
-                  onTap: () => _mapController?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(u.latitude, u.longitude), 16)),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F7F7),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(u.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Row(children: List.generate(5, (idx) => Icon(idx < u.avaliacao.round() ? Icons.star : Icons.star_border, size: 16, color: Colors.amber))),
-                              const SizedBox(height: 4),
-                              Text(u.endereco, style: const TextStyle(fontSize: 12)),
-                              const SizedBox(height: 4),
-                              Text('${u.distanciaKm.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: 120,
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _abrirRota(u.latitude, u.longitude),
-                                  icon: const Icon(Icons.navigation, size: 16),
-                                  label: const Text('Ver rota'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF204181),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    textStyle: const TextStyle(fontSize: 12),
+              ...pageItems.map(
+                (u) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: GestureDetector(
+                    onTap: () async {
+                      // 1) rola até o mapa
+                      await _scrollToMap();
+                      // 2) anima a câmera para a unidade
+                      final dest = LatLng(u.latitude, u.longitude);
+                      await _mapController?.animateCamera(
+                        CameraUpdate.newLatLngZoom(dest, 16),
+                      );
+                      // 3) mostra o balão (InfoWindow) do marker
+                      _mapController?.showMarkerInfoWindow(MarkerId(u.nome));
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F7F7),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(u.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: List.generate(
+                                    5,
+                                    (idx) => Icon(
+                                      idx < u.avaliacao.round()
+                                          ? Icons.star
+                                          : Icons.star_border,
+                                      size: 16,
+                                      color: Colors.amber,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Text(u.endereco, style: const TextStyle(fontSize: 12)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${u.distanciaKm.toStringAsFixed(1)} km',
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: 120,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _abrirRota(u.latitude, u.longitude),
+                                    icon: const Icon(Icons.navigation, size: 16),
+                                    label: const Text('Ver rota'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF046596),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      textStyle: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(u.imagemUrl, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported)),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              u.imagemUrl,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const Icon(Icons.image_not_supported),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              )),
+              ),
               if (totalPages > 1)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -393,7 +480,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 4),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: isCurrent ? const Color(0xFF204181) : const Color(0xFFF2F3F5),
+              color: isCurrent ? const Color(0xFF046596) : const Color(0xFFF2F3F5),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(

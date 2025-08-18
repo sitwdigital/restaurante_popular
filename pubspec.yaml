@@ -1,6 +1,6 @@
 name: restaurante_popular
 description: Aplicativo do Restaurante Popular Maranhão
-publish_to: 'none' # porque não vamos publicar no pub.dev
+publish_to: 'none' 
 
 version: 1.0.0+1
 
@@ -26,6 +26,7 @@ dependencies:
   smooth_page_indicator: ^1.1.0
   flutter_local_notifications: ^17.0.0
   timezone: ^0.9.2
+  change_app_package_name: ^1.5.0
 
 dev_dependencies:
   flutter_test:
@@ -35,7 +36,7 @@ dev_dependencies:
 
 flutter_icons:
   android: true
-  ios: true
+  ios: false
   image_path: "assets/icon/icon.png"
 
 flutter:

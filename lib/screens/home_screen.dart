@@ -218,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  SvgPicture.asset('assets/images/logo.svg', height: 40),
+                  SvgPicture.asset('assets/images/logo.svg', height: 40, colorFilter: null,),
                   const Spacer(),
                 ],
               ),
@@ -236,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleLarge
-                                    ?.copyWith(color: const Color(0xFF204181))),
+                                    ?.copyWith(color: const Color(0xFF046596))),
                             const SizedBox(height: 4),
                             Text('Veja o prato do dia, avisos e novidades.',
                                 style: Theme.of(context).textTheme.bodyMedium),
@@ -305,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: Theme.of(context)
                 .textTheme
                 .titleLarge
-                ?.copyWith(color: const Color(0xFF204181))),
+                ?.copyWith(color: const Color(0xFF046596))),
         const SizedBox(height: 4),
         Text(
             'Acompanhe inaugurações, manutenções e outras notícias dos restaurantes populares.',
@@ -392,7 +392,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: Theme.of(context)
                 .textTheme
                 .titleLarge
-                ?.copyWith(color: const Color(0xFF204181))),
+                ?.copyWith(color: const Color(0xFF046596))),
         const SizedBox(height: 4),
         Text('Veja os valores acessíveis das refeições.',
             style: Theme.of(context).textTheme.bodyMedium),
@@ -448,7 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: Theme.of(context)
                 .textTheme
                 .titleLarge
-                ?.copyWith(color: const Color(0xFF204181))),
+                ?.copyWith(color: const Color(0xFF046596))),
         const SizedBox(height: 4),
         Text('Confira os dias e horários de funcionamento.',
             style: Theme.of(context).textTheme.bodyMedium),

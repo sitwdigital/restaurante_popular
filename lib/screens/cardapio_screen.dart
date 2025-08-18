@@ -14,28 +14,35 @@ class CardapioScreen extends StatefulWidget {
 }
 
 class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStateMixin {
-  final List<String> diasemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+  final List<String> _diasBase = const ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+
   String? diaSelecionado;
   bool expandedCafe = false;
   bool expandedAlmoco = false;
   bool expandedJantar = false;
+
   final ScrollController _scrollController = ScrollController();
 
   Map<String, dynamic> cardapioData = {};
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   bool notificacoesAtivadas = false;
 
+  late final int _indexHoje;
+  late final bool _ehDiaUtil;
+
   @override
   void initState() {
     super.initState();
     _initNotification();
 
-    final int hoje = DateTime.now().weekday;
-    final int indexHoje = hoje >= 1 && hoje <= 5 ? hoje - 1 : 0;
-    diaSelecionado = diasemana[indexHoje];
+    final int weekday = DateTime.now().weekday; // 1=Mon..7=Sun
+    _ehDiaUtil = weekday >= 1 && weekday <= 5;
+    _indexHoje = _ehDiaUtil ? (weekday - 1) : 0;
+
+    diaSelecionado = _diasBase[_indexHoje];
 
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) _scrollToDay(indexHoje);
+      if (mounted) _scrollToDay(_indexHoje);
     });
 
     fetchCardapio();
@@ -181,22 +188,8 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  SvgPicture.asset('assets/images/logo.svg', height: 40),
+                  SvgPicture.asset('assets/images/logo.svg', height: 40,),
                   const Spacer(),
-                  IconButton(
-                    icon: Icon(
-                      notificacoesAtivadas ? Icons.notifications : Icons.notifications_none,
-                      size: 28,
-                      color: Colors.red,
-                    ),
-                    onPressed: () {
-                      if (notificacoesAtivadas) {
-                        _desativarNotificacoes();
-                      } else {
-                        _ativarNotificacoes();
-                      }
-                    },
-                  ),
                 ],
               ),
             ),
@@ -211,7 +204,7 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                           const SizedBox(height: 16),
                           Text(
                             'Cardápio do Dia',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181)),
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596)),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -223,14 +216,17 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                             controller: _scrollController,
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: diasemana.map((dia) {
-                                final bool isSelected = dia == diaSelecionado;
+                              children: List.generate(_diasBase.length, (i) {
+                                final String diaBase = _diasBase[i];
+                                final String label = (_ehDiaUtil && i == _indexHoje) ? 'Hoje' : diaBase;
+                                final bool isSelected = diaBase == diaSelecionado;
+
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8.0),
                                   child: GestureDetector(
                                     onTap: () {
                                       setState(() {
-                                        diaSelecionado = dia;
+                                        diaSelecionado = diaBase;
                                         expandedCafe = false;
                                         expandedAlmoco = false;
                                         expandedJantar = false;
@@ -240,14 +236,14 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                                       duration: const Duration(milliseconds: 200),
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                       decoration: BoxDecoration(
-                                        color: isSelected ? const Color(0xFF204181) : Colors.grey.shade200,
+                                        color: isSelected ? const Color(0xFF046596) : Colors.grey.shade200,
                                         borderRadius: BorderRadius.circular(24),
                                         border: Border.all(
-                                          color: isSelected ? const Color(0xFF204181) : Colors.grey.shade300,
+                                          color: isSelected ? const Color(0xFF046596) : Colors.grey.shade300,
                                         ),
                                       ),
                                       child: Text(
-                                        dia,
+                                        label,
                                         style: TextStyle(
                                           color: isSelected ? Colors.white : Colors.black87,
                                           fontWeight: FontWeight.w600,
@@ -256,21 +252,35 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                                     ),
                                   ),
                                 );
-                              }).toList(),
+                              }),
                             ),
                           ),
                           const SizedBox(height: 24),
-                          _buildCardapioSection('Café da Manhã', expandedCafe, () {
-                            setState(() => expandedCafe = !expandedCafe);
-                          }, getDetalhes('cafe'), 'cafe.png'),
+
+                          // Seções com animação 100% vertical
+                          _buildCardapioSection(
+                            'Café da Manhã',
+                            expandedCafe,
+                            () => setState(() => expandedCafe = !expandedCafe),
+                            getDetalhes('cafe'),
+                            'cafe.png',
+                          ),
                           const SizedBox(height: 12),
-                          _buildCardapioSection('Almoço', expandedAlmoco, () {
-                            setState(() => expandedAlmoco = !expandedAlmoco);
-                          }, getDetalhes('almoco'), 'almoco.png'),
+                          _buildCardapioSection(
+                            'Almoço',
+                            expandedAlmoco,
+                            () => setState(() => expandedAlmoco = !expandedAlmoco),
+                            getDetalhes('almoco'),
+                            'almoco.png',
+                          ),
                           const SizedBox(height: 12),
-                          _buildCardapioSection('Jantar', expandedJantar, () {
-                            setState(() => expandedJantar = !expandedJantar);
-                          }, getDetalhes('jantar'), 'jantar.png'),
+                          _buildCardapioSection(
+                            'Jantar',
+                            expandedJantar,
+                            () => setState(() => expandedJantar = !expandedJantar),
+                            getDetalhes('jantar'),
+                            'jantar.png',
+                          ),
                           const SizedBox(height: 16),
                         ],
                       ),
@@ -279,6 +289,28 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
           ],
         ),
       ),
+    );
+  }
+
+  // ---------- EXPANDABLE VERTICAL LIMPO (sem "abrir para os lados") ----------
+  Widget _expandable(bool expanded, Widget child) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: expanded ? 1 : 0),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeInOut,
+      builder: (context, value, _) {
+        return ClipRect( // corta só no eixo vertical
+          child: Align(
+            alignment: Alignment.topCenter,
+            heightFactor: value, // controla APENAS a altura
+            child: Opacity(
+              opacity: value, // opcional: dá um leve fade-in
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: child,
     );
   }
 
@@ -326,52 +358,48 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
               ],
             ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: expanded ? 1.0 : 0.0,
-              child: expanded && detalhes.isNotEmpty
-                  ? Container(
-                      key: ValueKey(label),
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      margin: const EdgeInsets.only(top: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: detalhes.entries.map((entry) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: RichText(
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: '${entry.key}: ',
-                                    style: const TextStyle(
-                                      color: Color(0xFFE30613),
-                                      fontWeight: FontWeight.bold,
-                                    ),
+
+          // <<< AQUI trocamos a animação
+          _expandable(
+            expanded,
+            detalhes.isNotEmpty
+                ? Container(
+                    key: ValueKey(label),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: detalhes.entries.map((entry) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '${entry.key}: ',
+                                  style: const TextStyle(
+                                    color: Color(0xFFE30613),
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  TextSpan(
-                                    text: entry.value,
-                                    style: const TextStyle(color: Color(0xFF1E1E1E)),
-                                  ),
-                                ],
-                              ),
+                                ),
+                                TextSpan(
+                                  text: entry.value,
+                                  style: const TextStyle(color: Color(0xFF1E1E1E)),
+                                ),
+                              ],
                             ),
-                          );
-                        }).toList(),
-                      ),
-                    )
-                  : const SizedBox(),
-            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),

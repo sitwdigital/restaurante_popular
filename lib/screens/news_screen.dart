@@ -34,6 +34,7 @@ class _NewsScreenState extends State<NewsScreen> {
   final int noticiasPorPagina = 5;
 
   final TextEditingController _buscaController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   static const _baseUrl = 'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/noticia';
 
   @override
@@ -78,7 +79,7 @@ class _NewsScreenState extends State<NewsScreen> {
         try {
           final dateA = DateFormat('dd/MM/yyyy').parse(a.date);
           final dateB = DateFormat('dd/MM/yyyy').parse(b.date);
-          return dateB.compareTo(dateA); // Mais recente primeiro
+          return dateB.compareTo(dateA);
         } catch (e) {
           return 0;
         }
@@ -121,6 +122,15 @@ class _NewsScreenState extends State<NewsScreen> {
     );
   }
 
+  void _irParaPagina(int novaPagina) {
+    setState(() => paginaAtual = novaPagina);
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final noticiasFiltradas = getNoticiasFiltradas();
@@ -136,7 +146,6 @@ class _NewsScreenState extends State<NewsScreen> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
-                  // AppBar
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -156,14 +165,12 @@ class _NewsScreenState extends State<NewsScreen> {
                       ],
                     ),
                   ),
-
-                  // Título e subtítulo
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Notícias', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF204181))),
+                        Text('Notícias', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596))),
                         const SizedBox(height: 4),
                         Text(
                           'Acompanhe inaugurações, manutenções e outras notícias dos restaurantes populares.',
@@ -172,8 +179,6 @@ class _NewsScreenState extends State<NewsScreen> {
                       ],
                     ),
                   ),
-
-                  // Busca
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
@@ -194,11 +199,11 @@ class _NewsScreenState extends State<NewsScreen> {
                               fillColor: Colors.white,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xFF204181)),
+                                borderSide: const BorderSide(color: Color(0xFF046596)),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xFF204181)),
+                                borderSide: const BorderSide(color: Color(0xFF046596)),
                               ),
                             ),
                           ),
@@ -215,7 +220,7 @@ class _NewsScreenState extends State<NewsScreen> {
                             height: 48,
                             width: 48,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF204181),
+                              color: const Color(0xFF046596),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(Icons.search, color: Colors.white),
@@ -224,98 +229,86 @@ class _NewsScreenState extends State<NewsScreen> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Lista
                   Expanded(
                     child: SingleChildScrollView(
+                      controller: _scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ...noticiasPagina.map((noticia) {
-                            return GestureDetector(
-                              onTap: () {
-                                if (noticia.link.isNotEmpty) {
-                                  _launchLink(noticia.link);
-                                }
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (noticia.imageUrl.isNotEmpty)
-                                      ClipRRect(
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(12),
-                                          topRight: Radius.circular(12),
+                          ...noticiasPagina.map((noticia) => GestureDetector(
+                                onTap: () => _launchLink(noticia.link),
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border.all(color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (noticia.imageUrl.isNotEmpty)
+                                        ClipRRect(
+                                          borderRadius: const BorderRadius.only(
+                                            topLeft: Radius.circular(12),
+                                            topRight: Radius.circular(12),
+                                          ),
+                                          child: Image.network(
+                                            noticia.imageUrl,
+                                            height: 140,
+                                            width: double.infinity,
+                                            fit: BoxFit.cover,
+                                          ),
                                         ),
-                                        child: Image.network(
-                                          noticia.imageUrl,
-                                          height: 140,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
+                                      Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              noticia.title,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFFE30613),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              noticia.date,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade500,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            noticia.title,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFFE30613),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            noticia.date,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
-
-                          // Paginação
+                              )),
                           if (totalPaginas > 1) ...[
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                _buildPaginationButton(Icons.first_page, () {
-                                  setState(() => paginaAtual = 1);
-                                }),
+                                _buildPaginationButton(Icons.first_page, () => _irParaPagina(1)),
                                 _buildPaginationButton(Icons.chevron_left, () {
-                                  if (paginaAtual > 1) setState(() => paginaAtual--);
+                                  if (paginaAtual > 1) _irParaPagina(paginaAtual - 1);
                                 }),
                                 ...List.generate(totalPaginas, (i) {
                                   final page = i + 1;
                                   final isCurrent = page == paginaAtual;
                                   return GestureDetector(
-                                    onTap: () => setState(() => paginaAtual = page),
+                                    onTap: () => _irParaPagina(page),
                                     child: Container(
                                       margin: const EdgeInsets.symmetric(horizontal: 4),
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: isCurrent ? const Color(0xFF204181) : const Color(0xFFF2F3F5),
+                                        color: isCurrent ? const Color(0xFF046596) : const Color(0xFFF2F3F5),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
@@ -329,11 +322,9 @@ class _NewsScreenState extends State<NewsScreen> {
                                   );
                                 }),
                                 _buildPaginationButton(Icons.chevron_right, () {
-                                  if (paginaAtual < totalPaginas) setState(() => paginaAtual++);
+                                  if (paginaAtual < totalPaginas) _irParaPagina(paginaAtual + 1);
                                 }),
-                                _buildPaginationButton(Icons.last_page, () {
-                                  setState(() => paginaAtual = totalPaginas);
-                                }),
+                                _buildPaginationButton(Icons.last_page, () => _irParaPagina(totalPaginas)),
                               ],
                             ),
                           ],

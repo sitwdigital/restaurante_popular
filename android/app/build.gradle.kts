@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "com.example.restaurante_popular"
+    namespace = "br.com.sitw.restaurante_popular"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
-        applicationId = "com.example.restaurante_popular"
+        applicationId = "br.com.sitw.restaurante_popular"
         minSdk = 23
         targetSdk = 35
         versionCode = 1
