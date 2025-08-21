@@ -238,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     .titleLarge
                                     ?.copyWith(color: const Color(0xFF046596))),
                             const SizedBox(height: 4),
-                            Text('Veja o prato do dia, avisos e novidades.',
+                            Text('Fique por dentro das novidades\ndo Restaurante Popular',
                                 style: Theme.of(context).textTheme.bodyMedium),
                             const SizedBox(height: 12),
                             SizedBox(
@@ -308,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ?.copyWith(color: const Color(0xFF046596))),
         const SizedBox(height: 4),
         Text(
-            'Acompanhe inaugurações, manutenções e outras notícias dos restaurantes populares.',
+            'Acompanhe as últimas ações e iniciativas\ndo Governo do Maranhão',
             style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 12),
         SizedBox(
@@ -394,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 .titleLarge
                 ?.copyWith(color: const Color(0xFF046596))),
         const SizedBox(height: 4),
-        Text('Veja os valores acessíveis das refeições.',
+        Text('Alimentação de qualidade por um\npreço que cabe no seu bolso',
             style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 12),
         _buildValorItem('Café da Manhã', valorCafe, 'cafe.png'),
@@ -450,7 +450,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 .titleLarge
                 ?.copyWith(color: const Color(0xFF046596))),
         const SizedBox(height: 4),
-        Text('Confira os dias e horários de funcionamento.',
+        Text('Confira os dias e horários em que\no Restaurante Popular está aberto',
             style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 12),
         _buildHorarioItem(Icons.check, Colors.green, dias),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'internet_wrapper.dart';
 import 'screens/home_screen.dart';
 import 'screens/cardapio_screen.dart';
 import 'screens/news_screen.dart';
@@ -45,14 +46,17 @@ class RestaurantePopularApp extends StatelessWidget {
           titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ),
-      home: const SplashScreen(),
+      // SplashScreen já protegida
+      home: const InternetWrapper(
+        child: SplashScreen(),
+      ),
       routes: {
-        '/home': (context) => const HomeScreen(),
-        '/cardapio': (context) => const CardapioScreen(),
-        '/noticias': (context) => const NewsScreen(),
-        '/navegacao': (context) => const MainNavigation(),
-        '/sobre': (context) => const SobreScreen(),
-        '/unidades': (context) => const UnidadesScreen(),
+        '/home': (context) => const InternetWrapper(child: HomeScreen()),
+        '/cardapio': (context) => const InternetWrapper(child: CardapioScreen()),
+        '/noticias': (context) => const InternetWrapper(child: NewsScreen()),
+        '/navegacao': (context) => const InternetWrapper(child: MainNavigation()),
+        '/sobre': (context) => const InternetWrapper(child: SobreScreen()),
+        '/unidades': (context) => const InternetWrapper(child: UnidadesScreen()),
       },
     );
   }

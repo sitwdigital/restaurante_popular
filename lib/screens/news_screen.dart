@@ -43,6 +43,23 @@ class _NewsScreenState extends State<NewsScreen> {
     fetchNoticias();
   }
 
+  // Normaliza quebras de linha vindas do WP (\n, <br>, espaços)
+  String _normalizeMultiline(String s) {
+    if (s.isEmpty) return s;
+    String out = s
+        .replaceAll('<br />', '\n')
+        .replaceAll('<br/>', '\n')
+        .replaceAll('<br>', '\n')
+        .replaceAll(r'\n', '\n');
+
+    out = out
+        .split('\n')
+        .map((l) => l.trimLeft())
+        .join('\n');
+
+    return out.trimLeft();
+  }
+
   Future<void> fetchNoticias() async {
     try {
       final response = await http.get(Uri.parse(_baseUrl));
@@ -55,12 +72,14 @@ class _NewsScreenState extends State<NewsScreen> {
         final acf = item['acf'];
         if (acf == null) continue;
 
-        final title = acf['titulo'] ?? 'Sem título';
-        final rawDate = acf['data'] ?? '';
-        final link = acf['link'] ?? '';
+        String title = (acf['titulo'] ?? 'Sem título').toString();
+        title = _normalizeMultiline(title);
+
+        final rawDate = (acf['data'] ?? '').toString().trim();
+        final link = (acf['link'] ?? '').toString().trim();
+
         final imageField = acf['imagem'];
         String imageUrl = '';
-
         if (imageField is String) {
           imageUrl = imageField;
         } else if (imageField is Map && imageField['url'] != null) {
@@ -80,7 +99,7 @@ class _NewsScreenState extends State<NewsScreen> {
           final dateA = DateFormat('dd/MM/yyyy').parse(a.date);
           final dateB = DateFormat('dd/MM/yyyy').parse(b.date);
           return dateB.compareTo(dateA);
-        } catch (e) {
+        } catch (_) {
           return 0;
         }
       });
@@ -90,6 +109,7 @@ class _NewsScreenState extends State<NewsScreen> {
         isLoading = false;
       });
     } catch (e) {
+      // ignore: avoid_print
       print('Erro ao carregar notícias: $e');
       setState(() => isLoading = false);
     }
@@ -136,7 +156,7 @@ class _NewsScreenState extends State<NewsScreen> {
     final noticiasFiltradas = getNoticiasFiltradas();
     final totalPaginas = (noticiasFiltradas.length / noticiasPorPagina).ceil();
     final inicio = (paginaAtual - 1) * noticiasPorPagina;
-    final fim = (inicio + noticiasPorPagina).clamp(0, noticiasFiltradas.length);
+    final fim = ((inicio + noticiasPorPagina).clamp(0, noticiasFiltradas.length)).toInt();
     final noticiasPagina = noticiasFiltradas.sublist(inicio, fim);
 
     return Scaffold(
@@ -170,10 +190,15 @@ class _NewsScreenState extends State<NewsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Notícias', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596))),
+                        Text(
+                          'Notícias',
+                          textAlign: TextAlign.left,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596)),
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                          'Acompanhe inaugurações, manutenções e outras notícias dos restaurantes populares.',
+                          'Acompanhe inaugurações, manutenções e          outras notícias dos restaurantes populares',
+                          textAlign: TextAlign.left,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
@@ -267,17 +292,22 @@ class _NewsScreenState extends State<NewsScreen> {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              noticia.title,
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFFE30613),
+                                            Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                noticia.title,
+                                                textAlign: TextAlign.left,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFFE30613),
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(height: 6),
                                             Text(
                                               noticia.date,
+                                              textAlign: TextAlign.left,
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.grey.shade500,

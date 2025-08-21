@@ -231,7 +231,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  'Encontre todas as unidades por cidade ou bairro.\nConsulte endereço, contato e horário de cada uma.',
+                  'Encontre o Restaurante Popular mais próximo de você!',
                   style: TextStyle(fontSize: 13, color: Colors.black87),
                 ),
               ),

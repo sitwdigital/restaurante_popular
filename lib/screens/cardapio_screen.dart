@@ -208,7 +208,7 @@ class _CardapioScreenState extends State<CardapioScreen> with TickerProviderStat
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Selecione um dia e consulte o cardápio do café, almoço e jantar.',
+                            'Selecione o dia da semana e saiba as delícias\nque preparamos para você!',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           const SizedBox(height: 16),
