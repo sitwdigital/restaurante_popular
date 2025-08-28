@@ -1,42 +1,17 @@
-// IMPORTS 
+// lib/screens/unidades_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
+import 'package:hive/hive.dart';
 
-class Unidade {
-  final String nome;
-  final String endereco;
-  final String imagemUrl;
-  final double latitude;
-  final double longitude;
-  final double avaliacao;
-  late final double distanciaKm;
-
-  Unidade({
-    required this.nome,
-    required this.endereco,
-    required this.imagemUrl,
-    required this.latitude,
-    required this.longitude,
-    required this.avaliacao,
-  });
-
-  void calcularDistancia(LatLng userLoc) {
-    distanciaKm = Geolocator.distanceBetween(
-      userLoc.latitude,
-      userLoc.longitude,
-      latitude,
-      longitude,
-    ) / 1000;
-  }
-}
+import 'package:restaurante_popular/models/unidade.dart';
 
 class UnidadesScreen extends StatefulWidget {
   const UnidadesScreen({Key? key}) : super(key: key);
@@ -49,6 +24,9 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   final String _baseUrl = 'https://sitw.com.br/restaurante_popular';
   final TextEditingController _searchController = TextEditingController();
 
+  // Fator para estimar "rota" a partir da reta (ajuste fino entre 1.25 ~ 1.35)
+  static const double _fatorRotaAprox = 1.25;
+
   List<Unidade> _allUnidades = [];
   Set<Marker> _markers = {};
   LatLng? _userLocation;
@@ -59,40 +37,154 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   final int _perPage = 15;
 
   final ScrollController _scrollController = ScrollController();
-
-  // >>> NOVO: key para descobrir a posição do mapa na tela
   final GlobalKey _mapKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _initAndLoad();
+  }
+
+  Future<void> _initAndLoad() async {
+    final ok = await _ensureLocationPermission();
+    if (!ok) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    final pos = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+    _userLocation = LatLng(pos.latitude, pos.longitude);
+
+    await _loadFromCache();   // mostra rápido o que tiver
+    _refreshFromApi();        // sincroniza do WP em segundo plano
+  }
+
+  Future<bool> _ensureLocationPermission() async {
+    var status = await Permission.location.status;
+    if (status.isGranted) return true;
+    status = await Permission.location.request();
+    return status.isGranted;
+  }
+
+  Future<void> _loadFromCache() async {
+    final box = await Hive.openBox<Unidade>('unidadesBox');
+    if (box.isNotEmpty) {
+      final cached = box.values.toList();
+
+      if (_userLocation != null) {
+        for (final u in cached) {
+          u.calcularDistancia(_userLocation!); // reta (km)
+        }
+        cached.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
+      }
+
+      final markers = cached
+          .where((u) => u.latitude != 0 && u.longitude != 0)
+          .map(
+            (u) => Marker(
+              markerId: MarkerId('unidade_${u.id}'),
+              position: LatLng(u.latitude, u.longitude),
+              infoWindow: InfoWindow(title: u.nome, snippet: u.endereco),
+            ),
+          )
+          .toSet();
+
+      setState(() {
+        _allUnidades = cached;
+        _markers = markers;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _refreshFromApi() async {
+    try {
+      final freshList = await _fetchAllPaged();
+
+      if (_userLocation != null) {
+        for (final u in freshList) {
+          u.calcularDistancia(_userLocation!); // reta (km)
+        }
+        freshList.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
+      }
+
+      final box = await Hive.openBox<Unidade>('unidadesBox');
+      await box.clear();
+      await box.addAll(freshList);
+
+      final markers = freshList
+          .where((u) => u.latitude != 0 && u.longitude != 0)
+          .map(
+            (u) => Marker(
+              markerId: MarkerId('unidade_${u.id}'),
+              position: LatLng(u.latitude, u.longitude),
+              infoWindow: InfoWindow(title: u.nome, snippet: u.endereco),
+            ),
+          )
+          .toSet();
+
+      if (mounted) {
+        setState(() {
+          _allUnidades = freshList;
+          _markers = markers;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<List<Unidade>> _fetchAllPaged() async {
+    final List<Unidade> all = [];
+    int page = 1;
+    bool hasMore = true;
+
+    while (hasMore) {
+      final url = '$_baseUrl/wp-json/wp/v2/unidade?per_page=50&page=$page';
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode != 200) break;
+
+      final List data = jsonDecode(res.body) as List;
+      if (data.isEmpty) {
+        hasMore = false;
+      } else {
+        all.addAll(data.map((e) => Unidade.fromWpJson(e)).toList());
+        page++;
+      }
+    }
+    return all;
+  }
+
+  void _onSearch(String text) {
+    setState(() {
+      _search = text.trim();
+      _currentPage = 1;
+    });
   }
 
   void _scrollToTop() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
     });
   }
 
-  // >>> NOVO: anima a rolagem até o mapa
   Future<void> _scrollToMap() async {
-    if (!_scrollController.hasClients) return;
-    if (_mapKey.currentContext == null) return;
+    if (!_scrollController.hasClients || _mapKey.currentContext == null) return;
 
-    // Posição do mapa em coordenadas globais
     final box = _mapKey.currentContext!.findRenderObject() as RenderBox;
     final pos = box.localToGlobal(Offset.zero);
-
-    // Converte para offset dentro do scroll atual
-    final currentOffset = _scrollController.offset;
-    // Margem para não “colar” demais no topo
     const topPadding = 12.0;
 
+    final currentOffset = _scrollController.offset;
     final target = currentOffset + pos.dy - topPadding;
     final max = _scrollController.position.maxScrollExtent;
     final safeTarget = target.clamp(0.0, max);
@@ -104,71 +196,9 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     );
   }
 
-  Future<void> _loadData() async {
-    await Permission.location.request();
-    final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    _userLocation = LatLng(pos.latitude, pos.longitude);
-
-    final List<Unidade> list = [];
-    int page = 1;
-    while (true) {
-      final res = await http.get(Uri.parse('$_baseUrl/wp-json/wp/v2/unidade?per_page=100&page=$page'));
-      if (res.statusCode != 200) break;
-      final data = jsonDecode(res.body) as List<dynamic>;
-      if (data.isEmpty) break;
-      for (var item in data) {
-        final acf = item['acf'] ?? {};
-        final lat = double.tryParse(acf['latitude'] ?? '') ?? 0.0;
-        final lng = double.tryParse(acf['longitude'] ?? '') ?? 0.0;
-        final u = Unidade(
-          nome: '${acf['nome'] ?? item['title']['rendered'] ?? ''}',
-          endereco: '${acf['endereco'] ?? ''}',
-          imagemUrl: acf['imagem'] is Map ? acf['imagem']['url'] ?? '' : '',
-          latitude: lat,
-          longitude: lng,
-          avaliacao: double.tryParse(acf['avaliacao']?.toString() ?? '0') ?? 0.0,
-        );
-        if (_userLocation != null) u.calcularDistancia(_userLocation!);
-        list.add(u);
-      }
-      page++;
-    }
-
-    list.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
-
-    setState(() {
-      _allUnidades = list;
-      _markers = list
-          .map(
-            (u) => Marker(
-              markerId: MarkerId(u.nome),
-              position: LatLng(u.latitude, u.longitude),
-              infoWindow: InfoWindow(title: u.nome, snippet: u.endereco),
-            ),
-          )
-          .toSet();
-      _loading = false;
-    });
-  }
-
-  void _onSearch(String text) {
-    setState(() {
-      _search = text;
-      _currentPage = 1;
-    });
-  }
-
-  List<Unidade> get _filtered {
-    final filtro = _search.toLowerCase();
-    return _allUnidades.where((u) {
-      final nome = u.nome.toLowerCase();
-      final endereco = u.endereco.toLowerCase();
-      return nome.contains(filtro) || endereco.contains(filtro);
-    }).toList();
-  }
-
   Future<void> _abrirRota(double lat, double lng) async {
-    final google = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+    final google =
+        Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
     final waze = Uri.parse('https://waze.com/ul?ll=$lat,$lng&navigate=yes');
     if (await canLaunchUrl(google)) {
       await launchUrl(google, mode: LaunchMode.externalApplication);
@@ -177,14 +207,26 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     }
   }
 
+  List<Unidade> get _filtered {
+    final filtro = _search.toLowerCase();
+    if (filtro.isEmpty) return _allUnidades;
+    return _allUnidades.where((u) {
+      final nome = u.nome.toLowerCase();
+      final endereco = u.endereco.toLowerCase();
+      return nome.contains(filtro) || endereco.contains(filtro);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading || _userLocation == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     final all = _filtered;
-    final totalPages = (all.length / _perPage).ceil();
+    final totalPages = (all.length / _perPage).ceil().clamp(1, 9999);
     final start = (_currentPage - 1) * _perPage;
     final end = (_currentPage * _perPage).clamp(0, all.length);
     final pageItems = (start >= 0 && start < all.length && end >= start)
@@ -200,6 +242,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Topo
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -208,15 +251,12 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                 ),
                 child: Row(
                   children: [
-                    SvgPicture.asset(
-                      'assets/images/logo.svg',
-                      height: 40,
-                      colorFilter: null,
-                    ),
+                    SvgPicture.asset('assets/images/logo.svg', height: 40),
                     const Spacer(),
                   ],
                 ),
               ),
+
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
@@ -235,6 +275,8 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                   style: TextStyle(fontSize: 13, color: Colors.black87),
                 ),
               ),
+
+              // Busca
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
@@ -273,17 +315,19 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                   ],
                 ),
               ),
-              // >>> ADICIONADO key para encontrarmos a posição do mapa
+
+              // Mapa
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: SizedBox(
-                    key: _mapKey, // <<< AQUI
+                    key: _mapKey,
                     height: 200,
                     child: GoogleMap(
                       onMapCreated: (c) => _mapController = c,
-                      initialCameraPosition: CameraPosition(target: _userLocation!, zoom: 13),
+                      initialCameraPosition:
+                          CameraPosition(target: _userLocation!, zoom: 13),
                       myLocationEnabled: true,
                       markers: _markers,
                       zoomGesturesEnabled: true,
@@ -291,27 +335,31 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                       tiltGesturesEnabled: true,
                       rotateGesturesEnabled: true,
                       gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                        Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                        Factory<OneSequenceGestureRecognizer>(
+                          () => EagerGestureRecognizer(),
+                        ),
                       },
                     ),
                   ),
                 ),
               ),
+
               const SizedBox(height: 8),
+
+              // Lista
               ...pageItems.map(
                 (u) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: GestureDetector(
                     onTap: () async {
-                      // 1) rola até o mapa
                       await _scrollToMap();
-                      // 2) anima a câmera para a unidade
                       final dest = LatLng(u.latitude, u.longitude);
                       await _mapController?.animateCamera(
                         CameraUpdate.newLatLngZoom(dest, 16),
                       );
-                      // 3) mostra o balão (InfoWindow) do marker
-                      _mapController?.showMarkerInfoWindow(MarkerId(u.nome));
+                      _mapController?.showMarkerInfoWindow(
+                        MarkerId('unidade_${u.id}'),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.all(12),
@@ -341,12 +389,27 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(u.endereco, style: const TextStyle(fontSize: 12)),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${u.distanciaKm.toStringAsFixed(1)} km',
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+
+                                // Distância aproximada de rota (reta × fator)
+                                Builder(
+                                  builder: (_) {
+                                    final kmReta = u.distanciaKm;
+                                    final kmAprox = kmReta * _fatorRotaAprox;
+                                    return Row(
+                                      children: [
+                                        const Icon(Icons.directions_car, size: 14, color: Colors.grey),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '${kmAprox.toStringAsFixed(1)} km (aprox.)',
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
+
+                                const SizedBox(height: 6),
+                                Text(u.endereco, style: const TextStyle(fontSize: 12)),
                                 const SizedBox(height: 8),
                                 SizedBox(
                                   width: 120,
@@ -371,14 +434,24 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                           const SizedBox(width: 8),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              u.imagemUrl,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  const Icon(Icons.image_not_supported),
-                            ),
+                            child: (u.imagemUrl.isNotEmpty)
+                                ? Image.network(
+                                    u.imagemUrl,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.image_not_supported),
+                                  )
+                                : Container(
+                                    width: 80,
+                                    height: 80,
+                                    color: Colors.white,
+                                    child: const Icon(
+                                      Icons.image_not_supported,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                           ),
                         ],
                       ),
@@ -386,6 +459,8 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                   ),
                 ),
               ),
+
+              // Paginação
               if (totalPages > 1)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),

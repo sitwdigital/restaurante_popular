@@ -57,7 +57,7 @@ class SobreScreen extends StatelessWidget {
                       text: TextSpan(
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black, height: 1.5),
                         children: const [
-                          TextSpan(text: 'Atualmente, a rede conta com mais de'),
+                          TextSpan(text: 'Atualmente, a rede conta com mais de '),
                           TextSpan(
                             text: '180 unidades',
                             style: TextStyle(color: Color(0xFFE30613), fontWeight: FontWeight.bold),

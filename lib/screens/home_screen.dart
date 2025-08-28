@@ -5,7 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:lottie/lottie.dart';
 
 class NewsItem {
   final String title;
@@ -21,13 +21,6 @@ class NewsItem {
   });
 }
 
-class DestaqueItem {
-  final String imageUrl;
-  final String link;
-
-  DestaqueItem(this.imageUrl, this.link);
-}
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -36,16 +29,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<DestaqueItem> destaqueItems = [];
+  // Proporção dinâmica (largura/altura) da animação
+  double? _bannerAspect;
+  static const double _defaultBannerAspect = 382 / 300; // fallback visual
+
+  // URL da animação (ACF)
+  String? _animacaoUrl;
+
+  // Notícias
   List<NewsItem> noticias = [];
   bool isLoading = true;
-  final PageController _destaqueController = PageController();
-  Timer? _carouselTimer;
 
+  // Textos/Home
   String dias = '';
-  String cafe = '';
-  String almoco = '';
-  String jantar = '';
   String horarioCafe = '';
   String horarioAlmoco = '';
   String horarioJantar = '';
@@ -54,6 +50,18 @@ class _HomeScreenState extends State<HomeScreen> {
   String valorAlmoco = '';
   String valorJantar = '';
 
+  // Link ao tocar no banner (opcional)
+  String linkAnimacao = '';
+
+  // Carrossel (até 3 slides usando a mesma animação)
+  final PageController _bannerController = PageController();
+  Timer? _bannerTimer;
+  int _currentSlide = 0;
+  static const int _slidesCount = 3;
+
+  int get _effectiveSlidesCount =>
+      (_animacaoUrl ?? '').trim().isNotEmpty ? _slidesCount : 1;
+
   final String _wpBaseUrl =
       'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/home';
 
@@ -61,27 +69,28 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     fetchAllData();
-    _startCarouselAutoScroll();
+    _startAutoScroll();
   }
 
   @override
   void dispose() {
-    _carouselTimer?.cancel();
-    _destaqueController.dispose();
+    _bannerTimer?.cancel();
+    _bannerController.dispose();
     super.dispose();
   }
 
-  void _startCarouselAutoScroll() {
-    _carouselTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_destaqueController.hasClients && destaqueItems.isNotEmpty) {
-        int nextPage = _destaqueController.page!.round() + 1;
-        if (nextPage >= destaqueItems.length) nextPage = 0;
-        _destaqueController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-      }
+  void _startAutoScroll() {
+    _bannerTimer?.cancel();
+    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!_bannerController.hasClients) return;
+      final total = _effectiveSlidesCount;
+      if (total <= 1) return;
+      final next = (_currentSlide + 1) % total;
+      _bannerController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
     });
   }
 
@@ -93,16 +102,45 @@ class _HomeScreenState extends State<HomeScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data is List && data.isNotEmpty) {
-          final acf = data[0]['acf'];
+          final acf = data[0]['acf'] ?? {};
 
-          destaqueItems = [
-            if (acf['destaque1'] != null)
-              DestaqueItem(acf['destaque1']['url'], acf['link_destaque1'] ?? ''),
-            if (acf['destaque2'] != null)
-              DestaqueItem(acf['destaque2']['url'], acf['link_destaque2'] ?? ''),
-            if (acf['destaque3'] != null)
-              DestaqueItem(acf['destaque3']['url'], acf['link_destaque3'] ?? ''),
-          ];
+          // Helpers
+          String? _url(dynamic field) {
+            if (field == null) return null;
+            if (field is String) {
+              final u = field.trim();
+              return u.isEmpty ? null : u;
+            }
+            if (field is Map && field['url'] is String) {
+              final u = (field['url'] as String).trim();
+              return u.isEmpty ? null : u;
+            }
+            return null;
+          }
+
+          bool _isJson(dynamic field) {
+            if (field is String) return field.toLowerCase().endsWith('.json');
+            if (field is Map) {
+              final mime = (field['mime_type'] ?? '').toString().toLowerCase();
+              final filename = (field['filename'] ?? '').toString().toLowerCase();
+              return mime.contains('application/json') || filename.endsWith('.json');
+            }
+            return false;
+          }
+
+          // Sua API mostra 'acf.destaque1' como JSON (application/json)
+          final d1 = acf['destaque1'];
+          if (_isJson(d1)) {
+            _animacaoUrl = _url(d1);
+          } else {
+            // fallback: se você criar no futuro um campo ACF 'animacao_destaque'
+            _animacaoUrl = _url(acf['animacao_destaque']);
+          }
+
+          // Link ao tocar (opcional)
+          linkAnimacao =
+              (acf['link_destaque1'] ?? acf['link_animacao_destaque'] ?? '')
+                  .toString();
 
           valorCafe = acf['cafe_da_manha'] ?? '';
           valorAlmoco = acf['almoco'] ?? '';
@@ -117,10 +155,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
       await fetchNoticiasOrdenadas();
     } catch (e) {
+      // ignore: avoid_print
       print('Erro ao carregar dados do WordPress: $e');
     }
 
-    setState(() => isLoading = false);
+    if (mounted) setState(() => isLoading = false);
   }
 
   Future<void> fetchNoticiasOrdenadas() async {
@@ -160,23 +199,25 @@ class _HomeScreenState extends State<HomeScreen> {
             final dateA = DateFormat('dd/MM/yyyy').parse(a.date);
             final dateB = DateFormat('dd/MM/yyyy').parse(b.date);
             return dateB.compareTo(dateA);
-          } catch (e) {
+          } catch (_) {
             return 0;
           }
         });
 
-        setState(() {
-          noticias = loaded.take(3).toList();
-        });
+        if (mounted) {
+          setState(() {
+            noticias = loaded.take(3).toList();
+          });
+        }
       }
     } catch (e) {
+      // ignore: avoid_print
       print('Erro ao buscar notícias ordenadas: $e');
     }
   }
 
   Future<void> _handleDestaqueClick(String link) async {
     if (link.isEmpty) return;
-
     final Uri url = Uri.parse(link);
 
     try {
@@ -186,10 +227,11 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     } catch (e) {
+      // ignore: avoid_print
       print('Erro ao abrir o link: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Não foi possível abrir o link')),
+          const SnackBar(content: Text('Não foi possível abrir o link')),
         );
       }
     }
@@ -198,12 +240,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
+            // Header
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -218,11 +262,13 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  SvgPicture.asset('assets/images/logo.svg', height: 40, colorFilter: null,),
+                  SvgPicture.asset('assets/images/logo.svg', height: 40),
                   const Spacer(),
                 ],
               ),
             ),
+
+            // Conteúdo
             Expanded(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -232,54 +278,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Destaques',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(color: const Color(0xFF046596))),
+                            Text(
+                              'Destaques',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(color: const Color(0xFF046596)),
+                            ),
                             const SizedBox(height: 4),
-                            Text('Fique por dentro das novidades\ndo Restaurante Popular',
-                                style: Theme.of(context).textTheme.bodyMedium),
+                            Text(
+                              'Fique por dentro das novidades\ndo Restaurante Popular',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
                             const SizedBox(height: 12),
-                            SizedBox(
-                              height: 300,
-                              child: PageView.builder(
-                                controller: _destaqueController,
-                                itemCount: destaqueItems.length,
-                                itemBuilder: (context, i) {
-                                  final item = destaqueItems[i];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 12),
-                                    child: GestureDetector(
-                                      onTap: () => _handleDestaqueClick(item.link),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: SizedBox(
-                                          width: screenWidth * 0.9,
-                                          child: Image.network(
-                                            item.imageUrl,
-                                            fit: BoxFit.fitWidth,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Center(
-                              child: SmoothPageIndicator(
-                                controller: _destaqueController,
-                                count: destaqueItems.length,
-                                effect: WormEffect(
-                                  dotColor: Colors.grey.shade300,
-                                  activeDotColor: const Color(0xFF204181),
-                                  dotHeight: 8,
-                                  dotWidth: 8,
-                                ),
-                              ),
-                            ),
+
+                            // ====== CARROSSEL LOTTIE (API only) ======
+                            _buildDestaquesLottieCarousel(screenWidth),
+
                             const SizedBox(height: 24),
                             _buildNoticiasSection(screenWidth),
                             const SizedBox(height: 24),
@@ -297,19 +312,143 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ------------------ Widgets auxiliares ------------------
+
+  Widget _buildDestaquesLottieCarousel(double screenWidth) {
+    final aspect = _bannerAspect ?? _defaultBannerAspect;
+    final radius = 12.0;
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    final hasAnim = (_animacaoUrl ?? '').trim().isNotEmpty;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        width: double.infinity,
+        color: bg,
+        child: AspectRatio(
+          aspectRatio: aspect,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              PageView.builder(
+                controller: _bannerController,
+                itemCount: hasAnim ? _slidesCount : 1,
+                onPageChanged: (i) => setState(() => _currentSlide = i),
+                itemBuilder: (context, i) {
+                  final child = _buildLottieFromApiOrPlaceholder();
+                  return linkAnimacao.isEmpty
+                      ? child
+                      : GestureDetector(
+                          onTap: () => _handleDestaqueClick(linkAnimacao),
+                          child: child,
+                        );
+                },
+              ),
+
+              // Indicador interno (só mostra se tiver +1 slide)
+              if (hasAnim)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 12,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(_slidesCount, (i) {
+                          final active = i == _currentSlide;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: active ? 28 : 18,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.white
+                                  .withOpacity(active ? 0.95 : 0.55),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLottieFromApiOrPlaceholder() {
+    final url = (_animacaoUrl ?? '').trim();
+    if (url.isEmpty) return _buildLottiePlaceholder();
+
+    return Lottie.network(
+      url,
+      fit: BoxFit.contain, // sem cortes; AspectRatio controla o container
+      alignment: Alignment.center,
+      repeat: true,
+      frameRate: FrameRate.max,
+      errorBuilder: (context, error, stack) {
+        // API-only: sem fallback local
+        return _buildLottiePlaceholder();
+      },
+      onLoaded: (composition) {
+        final b = composition.bounds; // Rectangle
+        final ratio = (b.width == 0 || b.height == 0)
+            ? _defaultBannerAspect
+            : b.width / b.height;
+        if (mounted &&
+            (_bannerAspect == null ||
+                (ratio - _bannerAspect!).abs() > 0.005)) {
+          setState(() => _bannerAspect = ratio);
+        }
+      },
+    );
+  }
+
+  Widget _buildLottiePlaceholder() {
+    return Container(
+      color: Colors.white,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.insert_drive_file_outlined, size: 48, color: Colors.grey),
+          SizedBox(height: 8),
+          Text(
+            'Animação não disponível',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNoticiasSection(double screenWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Notícias',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(color: const Color(0xFF046596))),
+        Text(
+          'Notícias',
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(color: const Color(0xFF046596)),
+        ),
         const SizedBox(height: 4),
         Text(
-            'Acompanhe as últimas ações e iniciativas\ndo Governo do Maranhão',
-            style: Theme.of(context).textTheme.bodyMedium),
+          'Acompanhe as últimas ações e iniciativas\ndo Governo do Maranhão',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
         const SizedBox(height: 12),
         SizedBox(
           height: 250,
@@ -323,7 +462,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: GestureDetector(
                   onTap: () async {
                     final Uri url = Uri.parse(item.link);
-                    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                    if (!await launchUrl(url,
+                        mode: LaunchMode.externalApplication)) {
                       throw Exception('Não foi possível abrir o link da notícia');
                     }
                   },
@@ -363,7 +503,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 8.0),
                           child: Text(
                             item.date,
                             style: TextStyle(
@@ -388,14 +529,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Valores',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(color: const Color(0xFF046596))),
+        Text(
+          'Valores',
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(color: const Color(0xFF046596)),
+        ),
         const SizedBox(height: 4),
-        Text('Alimentação de qualidade por um\npreço que cabe no seu bolso',
-            style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          'Alimentação de qualidade por um\npreço que cabe no seu bolso',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
         const SizedBox(height: 12),
         _buildValorItem('Café da Manhã', valorCafe, 'cafe.png'),
         _buildValorItem('Almoço', valorAlmoco, 'almoco.png'),
@@ -444,20 +589,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Funcionamento',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(color: const Color(0xFF046596))),
+        Text(
+          'Funcionamento',
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(color: const Color(0xFF046596)),
+        ),
         const SizedBox(height: 4),
-        Text('Confira os dias e horários em que\no Restaurante Popular está aberto',
-            style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          'Confira os dias e horários em que\no Restaurante Popular está aberto',
+          style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 12),
         _buildHorarioItem(Icons.check, Colors.green, dias),
         _buildHorarioItem(Icons.check, Colors.green, 'Café da Manhã: $horarioCafe'),
         _buildHorarioItem(Icons.check, Colors.green, 'Almoço: $horarioAlmoco'),
         _buildHorarioItem(Icons.check, Colors.green, 'Jantar: $horarioJantar'),
-        _buildHorarioItem(Icons.close, Colors.red, 'Dias fechado: $diasFechado'),
+        _buildHorarioItem(Icons.close, Colors.red, 'Dias fechados: $diasFechado'),
       ],
     );
   }
