@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'internet_wrapper.dart';
@@ -11,30 +10,26 @@ import 'screens/splash_screen.dart';
 import 'screens/main_navigation.dart';
 import 'screens/unidades_screen.dart';
 import 'screens/sobre_screen.dart';
-import 'services/push_service.dart';
+
+import 'services/push_notifications_service.dart'; // ✅ novo serviço
 import 'models/unidade.dart';
 
-// Handler de mensagens em segundo plano (push com app fechado ou em background)
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  debugPrint("🔙 Notificação recebida em segundo plano: ${message.messageId}");
-}
+// navigatorKey para navegação por notificações (deep link)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar Firebase
+  // Firebase
   await Firebase.initializeApp();
 
-  // Registrar handler para notificações em segundo plano
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // Inicializar notificações locais
-  await PushService.init();
-
-  // Inicializar Hive (cache local)
+  // Hive (cache local)
   await Hive.initFlutter();
   Hive.registerAdapter(UnidadeAdapter()); // importante pro cache das unidades
+  await Hive.openBox('home_cache_box');   // box usada pelo app (e pelas notificações)
+
+  // Inicializa push + listeners (salva no Hive, atualiza badge e deep link)
+  await PushNotificationsService.initialize(navigatorKey: navigatorKey);
 
   runApp(const RestaurantePopularApp());
 }
@@ -45,6 +40,7 @@ class RestaurantePopularApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey, // ✅ necessário pro deep link das notificações
       title: 'Restaurante Popular',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -54,6 +50,11 @@ class RestaurantePopularApp extends StatelessWidget {
           titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           bodyMedium: TextStyle(fontSize: 14),
           titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF046596),
+          elevation: 0,
         ),
       ),
       // SplashScreen já protegida

@@ -24,7 +24,6 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   final String _baseUrl = 'https://sitw.com.br/restaurante_popular';
   final TextEditingController _searchController = TextEditingController();
 
-  // Fator para estimar "rota" a partir da reta (ajuste fino entre 1.25 ~ 1.35)
   static const double _fatorRotaAprox = 1.25;
 
   List<Unidade> _allUnidades = [];
@@ -57,8 +56,8 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     );
     _userLocation = LatLng(pos.latitude, pos.longitude);
 
-    await _loadFromCache();   // mostra rápido o que tiver
-    _refreshFromApi();        // sincroniza do WP em segundo plano
+    await _loadFromCache();
+    _refreshFromApi();
   }
 
   Future<bool> _ensureLocationPermission() async {
@@ -75,7 +74,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
       if (_userLocation != null) {
         for (final u in cached) {
-          u.calcularDistancia(_userLocation!); // reta (km)
+          u.calcularDistancia(_userLocation!);
         }
         cached.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
       }
@@ -105,7 +104,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
       if (_userLocation != null) {
         for (final u in freshList) {
-          u.calcularDistancia(_userLocation!); // reta (km)
+          u.calcularDistancia(_userLocation!);
         }
         freshList.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
       }
@@ -351,7 +350,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
               const SizedBox(height: 8),
 
-              // ===== Lista (ou estado vazio) =====
+              // Lista de unidades
               if (pageItems.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -400,8 +399,6 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-
-                                  // Distância aproximada de rota (reta × fator)
                                   Builder(
                                     builder: (_) {
                                       final kmReta = u.distanciaKm;
@@ -418,7 +415,6 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                                       );
                                     },
                                   ),
-
                                   const SizedBox(height: 6),
                                   Text(u.endereco, style: const TextStyle(fontSize: 12)),
                                   const SizedBox(height: 8),
@@ -471,52 +467,68 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                   ),
                 ),
 
-              // Paginação
-              if (totalPages > 1 && pageItems.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          if (_currentPage != 1) {
-                            setState(() => _currentPage = 1);
-                            _scrollToTop();
-                          }
-                        },
-                        child: _paginationButton(Icons.first_page),
+              // Paginação + total
+              if (pageItems.isNotEmpty)
+                Column(
+                  children: [
+                    if (totalPages > 1)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                if (_currentPage != 1) {
+                                  setState(() => _currentPage = 1);
+                                  _scrollToTop();
+                                }
+                              },
+                              child: _paginationButton(Icons.first_page),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                if (_currentPage > 1) {
+                                  setState(() => _currentPage--);
+                                  _scrollToTop();
+                                }
+                              },
+                              child: _paginationButton(Icons.chevron_left),
+                            ),
+                            ..._buildCompactPagination(totalPages),
+                            GestureDetector(
+                              onTap: () {
+                                if (_currentPage < totalPages) {
+                                  setState(() => _currentPage++);
+                                  _scrollToTop();
+                                }
+                              },
+                              child: _paginationButton(Icons.chevron_right),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                if (_currentPage != totalPages) {
+                                  setState(() => _currentPage = totalPages);
+                                  _scrollToTop();
+                                }
+                              },
+                              child: _paginationButton(Icons.last_page),
+                            ),
+                          ],
+                        ),
                       ),
-                      GestureDetector(
-                        onTap: () {
-                          if (_currentPage > 1) {
-                            setState(() => _currentPage--);
-                            _scrollToTop();
-                          }
-                        },
-                        child: _paginationButton(Icons.chevron_left),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Total de unidades: ${all.length}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                      ..._buildCompactPagination(totalPages),
-                      GestureDetector(
-                        onTap: () {
-                          if (_currentPage < totalPages) {
-                            setState(() => _currentPage++);
-                            _scrollToTop();
-                          }
-                        },
-                        child: _paginationButton(Icons.chevron_right),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          if (_currentPage != totalPages) {
-                            setState(() => _currentPage = totalPages);
-                            _scrollToTop();
-                          }
-                        },
-                        child: _paginationButton(Icons.last_page),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
             ],
           ),
@@ -525,7 +537,6 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     );
   }
 
-  // ===== Estado vazio (nenhuma unidade encontrada/disponível) =====
   Widget _buildEmptyState() {
     final hasQuery = _search.isNotEmpty;
     final title = hasQuery ? 'Nenhuma unidade encontrada' : 'Nenhuma unidade disponível';

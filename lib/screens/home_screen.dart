@@ -15,10 +15,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 // Cache
 import 'package:hive/hive.dart';
 
-// Modelos/telas
+// Modelos/telas/serviços
 import 'package:restaurante_popular/models/unidade.dart';
 import 'package:restaurante_popular/models/news_item.dart';
+import 'package:restaurante_popular/models/app_notification.dart';
 import 'package:restaurante_popular/screens/news_detail_screen.dart';
+import 'package:restaurante_popular/screens/notifications_screen.dart';
+import 'package:restaurante_popular/services/push_notifications_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,24 +31,25 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // ---------- Config ----------
+  // ---------- Chaves de cache ----------
   static const _homeBox = 'home_cache_box';
   static const _newsKey = 'news_list';
   static const _homeKey = 'home_map';
   static const _nearestKey = 'nearest_info';
+  static const _notifListKey = 'notifications_list';
+  static const _lastUnitsKey = 'last_unidades_ids';
+  static const _lastNewsKey = 'last_news_ids';
 
-  // Proporção dinâmica (largura/altura) da animação
+  // ---------- Banner Lottie ----------
   double? _bannerAspect;
-  static const double _defaultBannerAspect = 382 / 300; // fallback visual
-
-  // URL da animação (ACF)
+  static const double _defaultBannerAspect = 382 / 300;
   String? _animacaoUrl;
 
-  // Notícias (top 3)
+  // ---------- Notícias ----------
   List<NewsItem> noticias = [];
   bool isLoading = true;
 
-  // Textos/Home
+  // ---------- Textos/Home ----------
   String dias = '';
   String horarioCafe = '';
   String horarioAlmoco = '';
@@ -55,10 +59,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String valorAlmoco = '';
   String valorJantar = '';
 
-  // Link ao tocar no banner (opcional)
+  // Link do destaque
   String linkAnimacao = '';
 
-  // Carrossel (até 3 slides usando a mesma animação)
+  // Carrossel
   final PageController _bannerController = PageController();
   Timer? _bannerTimer;
   int _currentSlide = 0;
@@ -70,8 +74,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final String _wpBaseUrl =
       'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/home';
 
-  // Distância da unidade mais próxima (header)
-  static const double _fatorRotaAprox = 1.25; // reta × fator
+  // ---------- Unidade mais próxima ----------
+  static const double _fatorRotaAprox = 1.25;
   bool _locatingNearest = false;
   double? _nearestKmAprox;
   double? _nearestLat;
@@ -81,12 +85,15 @@ class _HomeScreenState extends State<HomeScreen> {
   final String _unidadesEndpointBase =
       'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/unidade';
 
+  // ---------- Badge local (fallback) ----------
+  int _unreadCount = 0;
+
   @override
   void initState() {
     super.initState();
-    _loadFromCache();      // 1) mostra rápido se já houver cache
-    _refreshFromApi();     // 2) atualiza em segundo plano e salva no cache
-    _initNearestDistance();
+    _loadNotificationsFromCache(); // badge inicial
+    _loadFromCache();              // home/news/nearest
+    _refreshFromApi();             // atualiza e cria notificações internas
     _startAutoScroll();
   }
 
@@ -97,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // ---------- helpers cache p/ NewsItem ----------
+  // ---------- Helpers NewsItem <-> Map ----------
   Map<String, dynamic> _newsToMap(NewsItem n) => {
         'id': n.id,
         'title': n.title,
@@ -114,59 +121,60 @@ class _HomeScreenState extends State<HomeScreen> {
         link: (m['link'] ?? '').toString(),
       );
 
-  // ---------- Cache ----------
+  // ---------- Carregamento de cache ----------
   Future<void> _loadFromCache() async {
-  try {
-    final box = await Hive.openBox(_homeBox);
+    try {
+      final box = await Hive.openBox(_homeBox);
 
-    // Home ACF
-    final Map? homeMap = box.get(_homeKey);
-    if (homeMap != null) _applyHomeMap(homeMap, fromCache: true);
+      // Home
+      final Map? homeMap = box.get(_homeKey);
+      if (homeMap != null) _applyHomeMap(homeMap, fromCache: true);
 
-    // Notícias
-    final List? newsList = box.get(_newsKey);
-    if (newsList != null && newsList.isNotEmpty) {
-      final cachedNews = newsList.whereType<Map>().map(_newsFromMap).toList();
-      if (mounted) setState(() => noticias = cachedNews);
-    }
-
-    // 👇 Nearest (novo)
-    final Map? nearest = box.get(_nearestKey);
-    if (nearest != null) {
-      if (mounted) {
-        setState(() {
-          _locatingNearest = false;
-          _nearestKmAprox = (nearest['km'] as num?)?.toDouble();
-          _nearestLat     = (nearest['lat'] as num?)?.toDouble();
-          _nearestLng     = (nearest['lng'] as num?)?.toDouble();
-          _nearestNome    = (nearest['nome'] ?? '') as String?;
-        });
+      // Notícias
+      final List? newsList = box.get(_newsKey);
+      if (newsList != null && newsList.isNotEmpty) {
+        final cachedNews = newsList.whereType<Map>().map(_newsFromMap).toList();
+        if (mounted) setState(() => noticias = cachedNews);
       }
-    } else {
-      // Sem cache: tenta calcular uma única vez
-      if (mounted) setState(() => _locatingNearest = true);
-      _initNearestDistance();
-    }
 
-    if ((homeMap != null || (newsList != null && newsList.isNotEmpty)) && mounted) {
-      setState(() => isLoading = false);
-    }
-  } catch (_) {
-    // ignore
+      // Unidade mais próxima
+      final Map? nearest = box.get(_nearestKey);
+      if (nearest != null) {
+        if (mounted) {
+          setState(() {
+            _locatingNearest = false;
+            _nearestKmAprox = (nearest['km'] as num?)?.toDouble();
+            _nearestLat     = (nearest['lat'] as num?)?.toDouble();
+            _nearestLng     = (nearest['lng'] as num?)?.toDouble();
+            _nearestNome    = (nearest['nome'] ?? '') as String?;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _locatingNearest = true);
+        _initNearestDistance(); // calcula e salva 1x
+      }
+
+      if ((homeMap != null || (newsList != null && newsList.isNotEmpty)) && mounted) {
+        setState(() => isLoading = false);
+      }
+    } catch (_) {}
   }
-}
 
+  // ---------- Refresh (API + notificações internas) ----------
   Future<void> _refreshFromApi() async {
     try {
-      await Future.wait([_fetchHomeFromApi(), _fetchNoticiasFromApi()]);
+      await _fetchHomeFromApi();
+      await _fetchNoticiasFromApi();
+      await _checkNewUnidades();   // cria notificação interna se novas unidades
+      await _checkNewNoticias();   // cria notificação interna se novas notícias
+      await _loadNotificationsFromCache(); // atualiza badge
     } catch (_) {
-      // mantém o que tiver em cache
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
   }
 
-  // ---------- API: Home ----------
+  // ---------- Home (acf) ----------
   Future<void> _fetchHomeFromApi() async {
     try {
       final response =
@@ -179,14 +187,11 @@ class _HomeScreenState extends State<HomeScreen> {
       final acf = data[0]['acf'] ?? {};
       final map = _extractHomeMapFromAcf(acf);
 
-      _applyHomeMap(map); // aplica no estado
+      _applyHomeMap(map);
 
-      // salva cache
       final box = await Hive.openBox(_homeBox);
       await box.put(_homeKey, map);
-    } catch (_) {
-      // noop
-    }
+    } catch (_) {}
   }
 
   Map<String, dynamic> _extractHomeMapFromAcf(Map acf) {
@@ -219,8 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return {
       'animacaoUrl': animUrl ?? '',
       'linkAnimacao':
-          (acf['link_destaque1'] ?? acf['link_animacao_destaque'] ?? '')
-              .toString(),
+          (acf['link_destaque1'] ?? acf['link_animacao_destaque'] ?? '').toString(),
       'valorCafe': acf['cafe_da_manha'] ?? '',
       'valorAlmoco': acf['almoco'] ?? '',
       'valorJantar': acf['jantar'] ?? '',
@@ -253,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // ---------- API: Notícias (top 3) ----------
+  // ---------- Notícias (lista/top3) ----------
   Future<void> _fetchNoticiasFromApi() async {
     try {
       final response = await http
@@ -286,11 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         loaded.add(NewsItem(
-          id: id,
-          title: title,
-          date: rawDate,
-          link: link,
-          imageUrl: imageUrl,
+          id: id, title: title, date: rawDate, link: link, imageUrl: imageUrl,
         ));
       }
 
@@ -308,80 +308,188 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) setState(() => noticias = top3);
 
-      // salva cache
       final box = await Hive.openBox(_homeBox);
       await box.put(_newsKey, top3.map(_newsToMap).toList());
-    } catch (_) {
-      // noop
-    }
+    } catch (_) {}
+  }
+
+  // ---------- Notificações (internas) ----------
+  Future<void> _loadNotificationsFromCache() async {
+    try {
+      final box = await Hive.openBox(_homeBox);
+      final raw = (box.get(_notifListKey) as List?)?.whereType<Map>().toList() ?? [];
+      final list = raw.map(AppNotification.fromMap).toList();
+      if (mounted) setState(() => _unreadCount = list.where((n) => !n.read).length);
+    } catch (_) {}
+  }
+
+  Future<void> _saveNotifications(List<AppNotification> list) async {
+    final box = await Hive.openBox(_homeBox);
+    await box.put(_notifListKey, list.map((e) => e.toMap()).toList());
+    if (mounted) setState(() => _unreadCount = list.where((n) => !n.read).length);
+  }
+
+  Future<void> _checkNewUnidades() async {
+    try {
+      final unidades = await _fetchUnidadesPaged();
+      final currentIds = unidades.map((u) => u.id).whereType<int>().toSet();
+
+      final box = await Hive.openBox(_homeBox);
+      final lastIdsList = (box.get(_lastUnitsKey) as List?)?.whereType<int>().toList();
+
+      // primeira execução: só cacheia ids
+      if (lastIdsList == null) {
+        await box.put(_lastUnitsKey, currentIds.toList());
+        return;
+      }
+
+      final lastIds = lastIdsList.toSet();
+      final newIds = currentIds.difference(lastIds);
+      if (newIds.isEmpty) return;
+
+      // notificações atuais
+      final rawNotifs = (box.get(_notifListKey) as List?)?.whereType<Map>().toList() ?? [];
+      final list = rawNotifs.map(AppNotification.fromMap).toList();
+
+      final byId = {for (final u in unidades) u.id: u};
+      final now = DateTime.now();
+
+      for (final nid in newIds) {
+        final u = byId[nid];
+        list.insert(
+          0,
+          AppNotification(
+            id: 'unidade_${nid}_$now',
+            title: 'Novo Restaurante Popular',
+            message: 'A unidade ${u?.nome ?? 'desconhecida'} foi adicionada.',
+            createdAt: now,
+            type: 'unidade_adicionada',
+            read: false,
+          ),
+        );
+      }
+
+      await _saveNotifications(list);
+      await box.put(_lastUnitsKey, currentIds.toList());
+    } catch (_) {}
+  }
+
+  Future<void> _checkNewNoticias() async {
+    try {
+      final response = await http.get(Uri.parse(
+        'https://sitw.com.br/restaurante_popular/wp-json/wp/v2/noticia?per_page=100&_fields=id,acf,date'
+      ));
+      if (response.statusCode != 200) return;
+
+      final List<dynamic> data = json.decode(response.body);
+      final currentIds = data.map((n) => n['id'] as int).toSet();
+
+      final box = await Hive.openBox(_homeBox);
+      final lastIdsList = (box.get(_lastNewsKey) as List?)?.whereType<int>().toList();
+
+      // primeira execução: só salva
+      if (lastIdsList == null) {
+        await box.put(_lastNewsKey, currentIds.toList());
+        return;
+      }
+
+      final lastIds = lastIdsList.toSet();
+      final newIds = currentIds.difference(lastIds);
+      if (newIds.isEmpty) return;
+
+      // notificações atuais
+      final rawNotifs = (box.get(_notifListKey) as List?)?.whereType<Map>().toList() ?? [];
+      final list = rawNotifs.map(AppNotification.fromMap).toList();
+
+      final now = DateTime.now();
+      for (var n in data) {
+        if (!newIds.contains(n['id'])) continue;
+        final acf = n['acf'] ?? {};
+        final title = (acf['titulo'] ?? 'Nova notícia').toString();
+        list.insert(
+          0,
+          AppNotification(
+            id: 'noticia_${n['id']}_$now',
+            title: 'Nova notícia',
+            message: 'Uma nova notícia foi publicada: $title',
+            createdAt: now,
+            type: 'noticia_adicionada',
+            read: false,
+          ),
+        );
+      }
+
+      await _saveNotifications(list);
+      await box.put(_lastNewsKey, currentIds.toList());
+    } catch (_) {}
   }
 
   // ---------- Localização + unidade mais próxima ----------
   Future<void> _initNearestDistance() async {
-  try {
-    final ok = await _ensureLocationPermission();
-    if (!ok) {
+    try {
+      final ok = await _ensureLocationPermission();
+      if (!ok) {
+        if (mounted) {
+          setState(() {
+            _locatingNearest = false;
+            _nearestKmAprox = null;
+          });
+        }
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final userLoc = LatLng(pos.latitude, pos.longitude);
+
+      final unidades = await _fetchUnidadesPaged();
+      if (unidades.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _locatingNearest = false;
+            _nearestKmAprox = null;
+          });
+        }
+        return;
+      }
+
+      for (final u in unidades) {
+        u.calcularDistancia(userLoc);
+      }
+      unidades.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
+      final nearest = unidades.first;
+
+      final kmReta = nearest.distanciaKm;
+      final kmAprox = kmReta * _fatorRotaAprox;
+
+      if (mounted) {
+        setState(() {
+          _locatingNearest = false;
+          _nearestKmAprox = kmAprox;
+          _nearestLat = nearest.latitude;
+          _nearestLng = nearest.longitude;
+          _nearestNome = nearest.nome;
+        });
+      }
+
+      final box = await Hive.openBox(_homeBox);
+      await box.put(_nearestKey, {
+        'km': kmAprox,
+        'lat': nearest.latitude,
+        'lng': nearest.longitude,
+        'nome': nearest.nome,
+        'ts': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (_) {
       if (mounted) {
         setState(() {
           _locatingNearest = false;
           _nearestKmAprox = null;
         });
       }
-      return;
-    }
-
-    final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    final userLoc = LatLng(pos.latitude, pos.longitude);
-
-    final unidades = await _fetchUnidadesPaged();
-    if (unidades.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _locatingNearest = false;
-          _nearestKmAprox = null;
-        });
-      }
-      return;
-    }
-
-    for (final u in unidades) {
-      u.calcularDistancia(userLoc);
-    }
-    unidades.sort((a, b) => a.distanciaKm.compareTo(b.distanciaKm));
-    final nearest = unidades.first;
-
-    final kmReta = nearest.distanciaKm;
-    final kmAprox = kmReta * _fatorRotaAprox;
-
-    if (mounted) {
-      setState(() {
-        _locatingNearest = false;
-        _nearestKmAprox = kmAprox;
-        _nearestLat = nearest.latitude;
-        _nearestLng = nearest.longitude;
-        _nearestNome = nearest.nome;
-      });
-    }
-
-    // 👇 salva cache para próximas vezes
-    final box = await Hive.openBox(_homeBox);
-    await box.put(_nearestKey, {
-      'km': kmAprox,
-      'lat': nearest.latitude,
-      'lng': nearest.longitude,
-      'nome': nearest.nome,
-      'ts': DateTime.now().millisecondsSinceEpoch, // (opcional) timestamp
-    });
-
-  } catch (_) {
-    if (mounted) {
-      setState(() {
-        _locatingNearest = false;
-        _nearestKmAprox = null;
-      });
     }
   }
-}
 
   Future<bool> _ensureLocationPermission() async {
     var status = await Permission.location.status;
@@ -468,7 +576,7 @@ class _HomeScreenState extends State<HomeScreen> {
         bottom: false,
         child: Column(
           children: [
-            // Header (apenas logo agora)
+            // Header com logo + sininho
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -485,6 +593,60 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   SvgPicture.asset('assets/images/logo.svg', height: 40),
                   const Spacer(),
+                  ValueListenableBuilder<int>(
+                    valueListenable: PushNotificationsService.unreadCount,
+                    builder: (_, unread, __) {
+                      final show = unread > 0 ? unread : _unreadCount;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.notifications_none_rounded,
+                              color: Color(0xFF046596),
+                            ),
+                            onPressed: () async {
+                              await PushNotificationsService.markAllRead();
+
+                              final changed = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const NotificationsScreen(),
+                                ),
+                              );
+                              if (changed == true) {
+                                // atualiza pelo serviço e por garantia local
+                                _loadNotificationsFromCache();
+                              }
+                            },
+                          ),
+                          if (show > 0)
+                            Positioned(
+                              right: 6,
+                              top: 6,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFB72B30),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(
+                                    minWidth: 18, minHeight: 18),
+                                child: Text(
+                                  show > 9 ? '9+' : '$show',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -499,9 +661,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 👉 Banner "Pertinho de você"
                             _buildNearestBanner(),
-
                             const SizedBox(height: 16),
                             Text(
                               'Destaques',
@@ -516,10 +676,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                             const SizedBox(height: 12),
-
-                            // Carrossel Lottie
                             _buildDestaquesLottieCarousel(screenWidth),
-
                             const SizedBox(height: 24),
                             _buildNoticiasSection(screenWidth),
                             const SizedBox(height: 24),
@@ -539,49 +696,49 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ---------- Banner "Pertinho de você" ----------
   Widget _buildNearestBanner() {
-    const green = Color(0xFF009C46); // paleta
+    const green = Color(0xFF009C46);
     const primary = Color(0xFF046596);
 
-    // texto de distância (usa vírgula)
-    // texto de distância (usa vírgula)
-String distanciaText;
-if (_locatingNearest) {
-  distanciaText = 'Localizando…';
-} else if (_nearestKmAprox != null) {
-  final kmStr = _nearestKmAprox!.toStringAsFixed(1).replaceAll('.', ',');
-  // >>> NÃO MUDE SUA FRASE AQUI <<<
-  distanciaText = 'O mais próximo está a $kmStr km de você'; // ou a sua frase atual
-} else {
-  distanciaText = 'Ative a localização para ver a unidade mais próxima';
-}
+    String distanciaText;
+    if (_locatingNearest) {
+      distanciaText = 'Localizando…';
+    } else if (_nearestKmAprox != null) {
+      final kmStr = _nearestKmAprox!.toStringAsFixed(1).replaceAll('.', ',');
+      distanciaText = 'O mais próximo está a $kmStr km de você';
+    } else {
+      distanciaText = 'Ative a localização para ver a unidade mais próxima';
+    }
 
-final baseStyle = const TextStyle(color: Colors.white, fontSize: 16);
+    final baseStyle = const TextStyle(color: Colors.white, fontSize: 16);
 
-// --------- SUBSTITUA o Text(distanciaText, ...) por isto:
-Widget distanciaWidget;
-if (_nearestKmAprox != null) {
-  final kmChunk = '${_nearestKmAprox!.toStringAsFixed(1).replaceAll('.', ',')} km';
-  final full = distanciaText;
-  final idx = full.indexOf(kmChunk);
+    // Deixa apenas “X,X km” em negrito
+    Widget distanciaWidget;
+    if (_nearestKmAprox != null) {
+      final kmChunk =
+          '${_nearestKmAprox!.toStringAsFixed(1).replaceAll('.', ',')} km';
+      final full = distanciaText;
+      final idx = full.indexOf(kmChunk);
 
-  distanciaWidget = (idx >= 0)
-      ? RichText(
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            style: baseStyle,
-            children: [
-              TextSpan(text: full.substring(0, idx)),
-              TextSpan(text: kmChunk, style: baseStyle.copyWith(fontWeight: FontWeight.w800)),
-              TextSpan(text: full.substring(idx + kmChunk.length)),
-            ],
-          ),
-        )
-      : Text(full, textAlign: TextAlign.center, style: baseStyle);
-} else {
-  distanciaWidget = Text(distanciaText, textAlign: TextAlign.center, style: baseStyle);
-}
+      distanciaWidget = (idx >= 0)
+          ? RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: baseStyle,
+                children: [
+                  TextSpan(text: full.substring(0, idx)),
+                  TextSpan(
+                      text: kmChunk,
+                      style: baseStyle.copyWith(fontWeight: FontWeight.w800)),
+                  TextSpan(text: full.substring(idx + kmChunk.length)),
+                ],
+              ),
+            )
+          : Text(full, textAlign: TextAlign.center, style: baseStyle);
+    } else {
+      distanciaWidget =
+          Text(distanciaText, textAlign: TextAlign.center, style: baseStyle);
+    }
 
-    // ação do botão
     VoidCallback? onPressed;
     String ctaLabel;
     IconData ctaIcon = Icons.arrow_forward_rounded;
@@ -626,14 +783,7 @@ if (_nearestKmAprox != null) {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            distanciaText,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
+          distanciaWidget,
           const SizedBox(height: 12),
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 180),
@@ -643,16 +793,14 @@ if (_nearestKmAprox != null) {
                 backgroundColor: primary,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
+                    borderRadius: BorderRadius.circular(24)),
               ),
               icon: Icon(ctaIcon, size: 18),
-              label: Text(
-                ctaLabel,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
+              label: Text(ctaLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -699,7 +847,8 @@ if (_nearestKmAprox != null) {
                   bottom: 12,
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(16),
@@ -714,7 +863,8 @@ if (_nearestKmAprox != null) {
                             width: active ? 28 : 18,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(active ? 0.95 : 0.55),
+                              color: Colors.white
+                                  .withOpacity(active ? 0.95 : 0.55),
                               borderRadius: BorderRadius.circular(4),
                             ),
                           );
@@ -732,7 +882,21 @@ if (_nearestKmAprox != null) {
 
   Widget _buildLottieFromApiOrPlaceholder() {
     final url = (_animacaoUrl ?? '').trim();
-    if (url.isEmpty) return _buildLottiePlaceholder();
+    if (url.isEmpty) {
+      return Container(
+        color: Colors.white,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.insert_drive_file_outlined, size: 48, color: Colors.grey),
+            SizedBox(height: 8),
+            Text('Animação não disponível',
+                style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
 
     return Lottie.network(
       url,
@@ -740,7 +904,7 @@ if (_nearestKmAprox != null) {
       alignment: Alignment.center,
       repeat: true,
       frameRate: FrameRate.max,
-      errorBuilder: (context, error, stack) => _buildLottiePlaceholder(),
+      errorBuilder: (_, __, ___) => Container(color: Colors.white),
       onLoaded: (composition) {
         final b = composition.bounds;
         final ratio =
@@ -753,22 +917,7 @@ if (_nearestKmAprox != null) {
     );
   }
 
-  Widget _buildLottiePlaceholder() {
-    return Container(
-      color: Colors.white,
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.insert_drive_file_outlined, size: 48, color: Colors.grey),
-          SizedBox(height: 8),
-          Text('Animação não disponível', style: TextStyle(color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
-  // ---------- Notícias ----------
+  // ---------- Notícias (cards) ----------
   Widget _buildNoticiasSection(double screenWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -799,7 +948,9 @@ if (_nearestKmAprox != null) {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => NewsDetailScreen(item: item)),
+                      MaterialPageRoute(
+                        builder: (_) => NewsDetailScreen(item: item),
+                      ),
                     );
                   },
                   child: Container(
@@ -869,8 +1020,10 @@ if (_nearestKmAprox != null) {
       children: [
         Text(
           'Valores',
-          style:
-              Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596)),
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(color: const Color(0xFF046596)),
         ),
         const SizedBox(height: 4),
         Text(
@@ -925,8 +1078,10 @@ if (_nearestKmAprox != null) {
       children: [
         Text(
           'Funcionamento',
-          style:
-              Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596)),
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(color: const Color(0xFF046596)),
         ),
         const SizedBox(height: 4),
         Text(
