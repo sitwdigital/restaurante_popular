@@ -165,6 +165,11 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
     });
   }
 
+  void _clearSearch() {
+    _searchController.clear();
+    _onSearch('');
+  }
+
   void _scrollToTop() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -346,122 +351,128 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
               const SizedBox(height: 8),
 
-              // Lista
-              ...pageItems.map(
-                (u) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: GestureDetector(
-                    onTap: () async {
-                      await _scrollToMap();
-                      final dest = LatLng(u.latitude, u.longitude);
-                      await _mapController?.animateCamera(
-                        CameraUpdate.newLatLngZoom(dest, 16),
-                      );
-                      _mapController?.showMarkerInfoWindow(
-                        MarkerId('unidade_${u.id}'),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F7F7),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(u.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: List.generate(
-                                    5,
-                                    (idx) => Icon(
-                                      idx < u.avaliacao.round()
-                                          ? Icons.star
-                                          : Icons.star_border,
-                                      size: 16,
-                                      color: Colors.amber,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-
-                                // Distância aproximada de rota (reta × fator)
-                                Builder(
-                                  builder: (_) {
-                                    final kmReta = u.distanciaKm;
-                                    final kmAprox = kmReta * _fatorRotaAprox;
-                                    return Row(
-                                      children: [
-                                        const Icon(Icons.directions_car, size: 14, color: Colors.grey),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          '${kmAprox.toStringAsFixed(1)} km (aprox.)',
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-
-                                const SizedBox(height: 6),
-                                Text(u.endereco, style: const TextStyle(fontSize: 12)),
-                                const SizedBox(height: 8),
-                                SizedBox(
-                                  width: 120,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => _abrirRota(u.latitude, u.longitude),
-                                    icon: const Icon(Icons.navigation, size: 16),
-                                    label: const Text('Ver rota'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF046596),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
+              // ===== Lista (ou estado vazio) =====
+              if (pageItems.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                  child: _buildEmptyState(),
+                )
+              else
+                ...pageItems.map(
+                  (u) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: GestureDetector(
+                      onTap: () async {
+                        await _scrollToMap();
+                        final dest = LatLng(u.latitude, u.longitude);
+                        await _mapController?.animateCamera(
+                          CameraUpdate.newLatLngZoom(dest, 16),
+                        );
+                        _mapController?.showMarkerInfoWindow(
+                          MarkerId('unidade_${u.id}'),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7F7F7),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(u.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: List.generate(
+                                      5,
+                                      (idx) => Icon(
+                                        idx < u.avaliacao.round()
+                                            ? Icons.star
+                                            : Icons.star_border,
+                                        size: 16,
+                                        color: Colors.amber,
                                       ),
-                                      textStyle: const TextStyle(fontSize: 12),
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 4),
+
+                                  // Distância aproximada de rota (reta × fator)
+                                  Builder(
+                                    builder: (_) {
+                                      final kmReta = u.distanciaKm;
+                                      final kmAprox = kmReta * _fatorRotaAprox;
+                                      return Row(
+                                        children: [
+                                          const Icon(Icons.directions_car, size: 14, color: Colors.grey),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '${kmAprox.toStringAsFixed(1)} km (aprox.)',
+                                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+
+                                  const SizedBox(height: 6),
+                                  Text(u.endereco, style: const TextStyle(fontSize: 12)),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: 120,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _abrirRota(u.latitude, u.longitude),
+                                      icon: const Icon(Icons.navigation, size: 16),
+                                      label: const Text('Ver rota'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF046596),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        textStyle: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: (u.imagemUrl.isNotEmpty)
-                                ? Image.network(
-                                    u.imagemUrl,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        const Icon(Icons.image_not_supported),
-                                  )
-                                : Container(
-                                    width: 80,
-                                    height: 80,
-                                    color: Colors.white,
-                                    child: const Icon(
-                                      Icons.image_not_supported,
-                                      color: Colors.grey,
+                            const SizedBox(width: 8),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: (u.imagemUrl.isNotEmpty)
+                                  ? Image.network(
+                                      u.imagemUrl,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.image_not_supported),
+                                    )
+                                  : Container(
+                                      width: 80,
+                                      height: 80,
+                                      color: Colors.white,
+                                      child: const Icon(
+                                        Icons.image_not_supported,
+                                        color: Colors.grey,
+                                      ),
                                     ),
-                                  ),
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
 
               // Paginação
-              if (totalPages > 1)
+              if (totalPages > 1 && pageItems.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
@@ -510,6 +521,66 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ===== Estado vazio (nenhuma unidade encontrada/disponível) =====
+  Widget _buildEmptyState() {
+    final hasQuery = _search.isNotEmpty;
+    final title = hasQuery ? 'Nenhuma unidade encontrada' : 'Nenhuma unidade disponível';
+    final subtitle = hasQuery
+        ? 'Tente outro bairro/cidade ou limpe a busca.'
+        : 'Tente novamente mais tarde.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            hasQuery ? Icons.search_off : Icons.location_off,
+            size: 40,
+            color: Colors.grey.shade600,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: Color(0xFF1E1E1E),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (hasQuery) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _clearSearch,
+              icon: const Icon(Icons.clear),
+              label: const Text('Limpar busca'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF046596),
+                side: const BorderSide(color: Color(0xFF046596)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

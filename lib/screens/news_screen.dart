@@ -2,22 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
-class NewsItem {
-  final String title;
-  final String imageUrl;
-  final String date;
-  final String link;
-
-  NewsItem({
-    required this.title,
-    required this.imageUrl,
-    required this.date,
-    required this.link,
-  });
-}
+import '../models/news_item.dart';
+import 'news_detail_screen.dart';
 
 class NewsScreen extends StatefulWidget {
   const NewsScreen({Key? key}) : super(key: key);
@@ -43,7 +31,6 @@ class _NewsScreenState extends State<NewsScreen> {
     fetchNoticias();
   }
 
-  // Normaliza quebras de linha vindas do WP (\n, <br>, espaços)
   String _normalizeMultiline(String s) {
     if (s.isEmpty) return s;
     String out = s
@@ -52,11 +39,7 @@ class _NewsScreenState extends State<NewsScreen> {
         .replaceAll('<br>', '\n')
         .replaceAll(r'\n', '\n');
 
-    out = out
-        .split('\n')
-        .map((l) => l.trimLeft())
-        .join('\n');
-
+    out = out.split('\n').map((l) => l.trimLeft()).join('\n');
     return out.trimLeft();
   }
 
@@ -71,6 +54,8 @@ class _NewsScreenState extends State<NewsScreen> {
       for (var item in data) {
         final acf = item['acf'];
         if (acf == null) continue;
+
+        final int id = (item['id'] ?? 0) is int ? item['id'] as int : int.tryParse('${item['id']}') ?? 0;
 
         String title = (acf['titulo'] ?? 'Sem título').toString();
         title = _normalizeMultiline(title);
@@ -87,6 +72,7 @@ class _NewsScreenState extends State<NewsScreen> {
         }
 
         loaded.add(NewsItem(
+          id: id,
           title: title,
           date: rawDate,
           link: link,
@@ -120,13 +106,6 @@ class _NewsScreenState extends State<NewsScreen> {
     return todasNoticias.where((n) => n.title.toLowerCase().contains(busca.toLowerCase())).toList();
   }
 
-  Future<void> _launchLink(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      throw Exception('Não foi possível abrir o link');
-    }
-  }
-
   Widget _buildPaginationButton(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -144,19 +123,15 @@ class _NewsScreenState extends State<NewsScreen> {
 
   void _irParaPagina(int novaPagina) {
     setState(() => paginaAtual = novaPagina);
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
   }
 
   @override
   Widget build(BuildContext context) {
     final noticiasFiltradas = getNoticiasFiltradas();
-    final totalPaginas = (noticiasFiltradas.length / noticiasPorPagina).ceil();
-    final inicio = (paginaAtual - 1) * noticiasPorPagina;
-    final fim = ((inicio + noticiasPorPagina).clamp(0, noticiasFiltradas.length)).toInt();
+    final totalPaginas = (noticiasFiltradas.length / noticiasPorPagina).ceil().clamp(1, 9999);
+    final inicio = ((paginaAtual - 1) * noticiasPorPagina).clamp(0, noticiasFiltradas.length);
+    final fim = (inicio + noticiasPorPagina).clamp(0, noticiasFiltradas.length);
     final noticiasPagina = noticiasFiltradas.sublist(inicio, fim);
 
     return Scaffold(
@@ -166,16 +141,11 @@ class _NewsScreenState extends State<NewsScreen> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
+                  // topo
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Row(
@@ -185,25 +155,22 @@ class _NewsScreenState extends State<NewsScreen> {
                       ],
                     ),
                   ),
+                  // título
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Notícias',
-                          textAlign: TextAlign.left,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596)),
-                        ),
+                        Text('Notícias', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF046596))),
                         const SizedBox(height: 4),
                         Text(
-                          'Acompanhe inaugurações, manutenções e          outras notícias dos restaurantes populares',
-                          textAlign: TextAlign.left,
+                          'Acompanhe inaugurações, manutenções e outras notícias dos restaurantes populares',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
                     ),
                   ),
+                  // busca
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
@@ -211,12 +178,7 @@ class _NewsScreenState extends State<NewsScreen> {
                         Expanded(
                           child: TextField(
                             controller: _buscaController,
-                            onChanged: (v) {
-                              setState(() {
-                                busca = v;
-                                paginaAtual = 1;
-                              });
-                            },
+                            onChanged: (v) => setState(() { busca = v; paginaAtual = 1; }),
                             decoration: InputDecoration(
                               hintText: 'Buscar por notícia',
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -235,19 +197,10 @@ class _NewsScreenState extends State<NewsScreen> {
                         ),
                         const SizedBox(width: 8),
                         GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              busca = _buscaController.text;
-                              paginaAtual = 1;
-                            });
-                          },
+                          onTap: () => setState(() { busca = _buscaController.text; paginaAtual = 1; }),
                           child: Container(
-                            height: 48,
-                            width: 48,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF046596),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            height: 48, width: 48,
+                            decoration: BoxDecoration(color: const Color(0xFF046596), borderRadius: BorderRadius.circular(12)),
                             child: const Icon(Icons.search, color: Colors.white),
                           ),
                         ),
@@ -255,6 +208,7 @@ class _NewsScreenState extends State<NewsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // lista
                   Expanded(
                     child: SingleChildScrollView(
                       controller: _scrollController,
@@ -263,7 +217,9 @@ class _NewsScreenState extends State<NewsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           ...noticiasPagina.map((noticia) => GestureDetector(
-                                onTap: () => _launchLink(noticia.link),
+                                onTap: () {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => NewsDetailScreen(item: noticia)));
+                                },
                                 child: Container(
                                   margin: const EdgeInsets.only(bottom: 16),
                                   decoration: BoxDecoration(
@@ -275,16 +231,11 @@ class _NewsScreenState extends State<NewsScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       if (noticia.imageUrl.isNotEmpty)
-                                        ClipRRect(
-                                          borderRadius: const BorderRadius.only(
-                                            topLeft: Radius.circular(12),
-                                            topRight: Radius.circular(12),
-                                          ),
-                                          child: Image.network(
-                                            noticia.imageUrl,
-                                            height: 140,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
+                                        Hero(
+                                          tag: 'news-${noticia.id}',
+                                          child: ClipRRect(
+                                            borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+                                            child: Image.network(noticia.imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
                                           ),
                                         ),
                                       Padding(
@@ -292,27 +243,10 @@ class _NewsScreenState extends State<NewsScreen> {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                noticia.title,
-                                                textAlign: TextAlign.left,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFFE30613),
-                                                ),
-                                              ),
-                                            ),
+                                            Text(noticia.title,
+                                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFE30613))),
                                             const SizedBox(height: 6),
-                                            Text(
-                                              noticia.date,
-                                              textAlign: TextAlign.left,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey.shade500,
-                                              ),
-                                            ),
+                                            Text(noticia.date, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
                                           ],
                                         ),
                                       ),
@@ -326,9 +260,7 @@ class _NewsScreenState extends State<NewsScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 _buildPaginationButton(Icons.first_page, () => _irParaPagina(1)),
-                                _buildPaginationButton(Icons.chevron_left, () {
-                                  if (paginaAtual > 1) _irParaPagina(paginaAtual - 1);
-                                }),
+                                _buildPaginationButton(Icons.chevron_left, () { if (paginaAtual > 1) _irParaPagina(paginaAtual - 1); }),
                                 ...List.generate(totalPaginas, (i) {
                                   final page = i + 1;
                                   final isCurrent = page == paginaAtual;
@@ -341,19 +273,11 @@ class _NewsScreenState extends State<NewsScreen> {
                                         color: isCurrent ? const Color(0xFF046596) : const Color(0xFFF2F3F5),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
-                                      child: Text(
-                                        '$page',
-                                        style: TextStyle(
-                                          color: isCurrent ? Colors.white : Colors.black,
-                                          fontSize: 12,
-                                        ),
-                                      ),
+                                      child: Text('$page', style: TextStyle(color: isCurrent ? Colors.white : Colors.black, fontSize: 12)),
                                     ),
                                   );
                                 }),
-                                _buildPaginationButton(Icons.chevron_right, () {
-                                  if (paginaAtual < totalPaginas) _irParaPagina(paginaAtual + 1);
-                                }),
+                                _buildPaginationButton(Icons.chevron_right, () { if (paginaAtual < totalPaginas) _irParaPagina(paginaAtual + 1); }),
                                 _buildPaginationButton(Icons.last_page, () => _irParaPagina(totalPaginas)),
                               ],
                             ),
